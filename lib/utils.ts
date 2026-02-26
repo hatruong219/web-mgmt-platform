@@ -28,3 +28,5 @@ export function slugify(text: string): string {
 export function truncate(str: string, length: number) {
   return str.length > length ? str.substring(0, length) + '...' : str
 }
+
+export const STORAGE_BUCKET = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || 'media-bucket'

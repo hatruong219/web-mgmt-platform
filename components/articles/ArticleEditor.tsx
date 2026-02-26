@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { slugify } from '@/lib/utils'
+import { createArticleAction, updateArticleAction } from '@/app/actions/articles'
+import { slugify, STORAGE_BUCKET } from '@/lib/utils'
 import TiptapEditor from '@/components/editor/TiptapEditor'
 import type { Article } from '@/types/database'
 
@@ -41,31 +42,20 @@ export default function ArticleEditor({ siteId, siteName, article }: ArticleEdit
     const markUnsaved = useCallback(() => setSaved(false), [])
 
     const handleSave = async (showNotify = true) => {
-        const supabase = createClient()
-        const slug = slugify(title || 'untitled')
         const tagArr = tags.split(',').map(t => t.trim()).filter(Boolean)
-
-        const payload = {
-            site_id: siteId,
-            title: title || 'Untitled',
-            slug,
-            content,
-            excerpt: excerpt || null,
-            cover_image: coverImage || null,
-            tags: tagArr,
-            status,
-            published_at: status === 'published' ? new Date().toISOString() : article?.published_at || null,
-        }
 
         startTransition(async () => {
             if (isNew) {
-                const { data, error } = await supabase.from('articles').insert(payload).select().single()
-                if (!error && data) {
-                    router.replace(`/sites/${siteId}/articles/${data.id}`)
+                const result = await createArticleAction(siteId, title, content, excerpt, coverImage, tagArr, status)
+                if (result.success && result.data) {
+                    router.replace(`/sites/${siteId}/articles/${result.data.id}`)
                     router.refresh()
                 }
             } else {
-                await supabase.from('articles').update(payload).eq('id', article.id)
+                await updateArticleAction(
+                    article.id, siteId, title, content, excerpt, coverImage, tagArr, status,
+                    article.published_at
+                )
                 router.refresh()
             }
             setSaved(true)
@@ -81,9 +71,9 @@ export default function ArticleEditor({ siteId, siteName, article }: ArticleEdit
         const ext = file.name.split('.').pop()
         const fileName = `${siteId}/${Date.now()}.${ext}`
 
-        const { data, error } = await supabase.storage.from('media').upload(fileName, file)
+        const { data, error } = await supabase.storage.from(STORAGE_BUCKET).upload(fileName, file)
         if (!error && data) {
-            const { data: urlData } = supabase.storage.from('media').getPublicUrl(data.path)
+            const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(data.path)
             setCoverImage(urlData.publicUrl)
             markUnsaved()
         }

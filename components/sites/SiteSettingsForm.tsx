@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { updateSiteAction, deleteSiteAction } from '@/app/actions/sites'
 import type { Site } from '@/types/database'
 
 interface Props {
@@ -18,23 +18,18 @@ export default function SiteSettingsForm({ site }: Props) {
     const [saved, setSaved] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    const handleSave = async (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         setError(null)
-        const supabase = createClient()
+
+        const formData = new FormData(e.currentTarget)
+        formData.set('id', site.id)
 
         startTransition(async () => {
-            const { error } = await supabase
-                .from('sites')
-                .update({
-                    name: name.trim(),
-                    description: description.trim() || null,
-                    domain: domain.trim() || null,
-                })
-                .eq('id', site.id)
+            const result = await updateSiteAction(formData)
 
-            if (error) {
-                setError(error.message)
+            if (result.error) {
+                setError(result.error)
             } else {
                 setSaved(true)
                 setTimeout(() => setSaved(false), 3000)
@@ -45,12 +40,9 @@ export default function SiteSettingsForm({ site }: Props) {
 
     const handleDelete = async () => {
         if (!confirm(`Xác nhận xóa website "${site.name}"? Tất cả bài viết và media sẽ bị xóa vĩnh viễn.`)) return
-        const supabase = createClient()
 
         startTransition(async () => {
-            await supabase.from('sites').delete().eq('id', site.id)
-            router.push('/')
-            router.refresh()
+            await deleteSiteAction(site.id)
         })
     }
 
@@ -64,6 +56,7 @@ export default function SiteSettingsForm({ site }: Props) {
                         <label className="form-label">Tên website</label>
                         <input
                             id="settings-name"
+                            name="name"
                             type="text"
                             required
                             value={name}
@@ -76,6 +69,7 @@ export default function SiteSettingsForm({ site }: Props) {
                         <label className="form-label">Mô tả</label>
                         <textarea
                             id="settings-description"
+                            name="description"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                             className="form-input form-textarea"
@@ -87,6 +81,7 @@ export default function SiteSettingsForm({ site }: Props) {
                         <label className="form-label">Domain</label>
                         <input
                             id="settings-domain"
+                            name="domain"
                             type="text"
                             value={domain}
                             onChange={(e) => setDomain(e.target.value)}

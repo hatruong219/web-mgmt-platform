@@ -2,32 +2,26 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import type { Metadata } from 'next'
+import { loginAction } from '@/app/actions/auth'
 
-// Metadata defined server-side; login page is client component so we export separately
 export default function LoginPage() {
     const router = useRouter()
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         setLoading(true)
         setError(null)
 
-        const supabase = createClient()
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        const formData = new FormData(e.currentTarget)
+        const result = await loginAction(formData)
 
-        if (error) {
-            setError(error.message)
+        if (result?.error) {
+            setError(result.error)
             setLoading(false)
-        } else {
-            router.push('/')
-            router.refresh()
         }
+        // On success, loginAction redirects via redirect('/')
     }
 
     return (
@@ -58,11 +52,10 @@ export default function LoginPage() {
                         <label htmlFor="email" className="form-label">Email</label>
                         <input
                             id="email"
+                            name="email"
                             type="email"
                             required
                             placeholder="you@example.com"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
                             className="form-input"
                             autoComplete="email"
                         />
@@ -72,11 +65,10 @@ export default function LoginPage() {
                         <label htmlFor="password" className="form-label">Mật khẩu</label>
                         <input
                             id="password"
+                            name="password"
                             type="password"
                             required
                             placeholder="••••••••"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
                             className="form-input"
                             autoComplete="current-password"
                         />

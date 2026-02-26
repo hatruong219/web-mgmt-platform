@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useTransition } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { deleteArticleAction } from '@/app/actions/articles'
 
 interface Props {
     articleId: string
@@ -16,9 +16,8 @@ export default function DeleteArticleButton({ articleId, siteId }: Props) {
     const handleDelete = async () => {
         if (!confirm('Bạn có chắc muốn xóa bài viết này?')) return
 
-        const supabase = createClient()
         startTransition(async () => {
-            await supabase.from('articles').delete().eq('id', articleId)
+            await deleteArticleAction(articleId, siteId)
             router.refresh()
         })
     }
