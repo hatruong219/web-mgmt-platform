@@ -27,7 +27,7 @@ export default async function DashboardLayout({
         minHeight: '100vh',
         overflowY: 'auto' as const,
       }}>
-        <div style={{ padding: '2rem', maxWidth: 1280 }}>
+        <div style={{ padding: '2rem' }}>
           {children}
         </div>
       </main>
