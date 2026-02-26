@@ -15,15 +15,18 @@ export default async function MediaPage({ params }: Props) {
     const { siteId } = await params
     const supabase = await createClient()
 
-    const { data: site } = await supabase.from('sites').select('name').eq('id', siteId).single()
-    if (!site) notFound()
+    // Chạy song song
+    const [siteResult, filesResult] = await Promise.all([
+        supabase.from('sites').select('name').eq('id', siteId).single(),
+        supabase.from('media').select('*').eq('site_id', siteId).order('created_at', { ascending: false }),
+    ])
 
-    const { data: files } = await supabase
-        .from('media').select('*').eq('site_id', siteId)
-        .order('created_at', { ascending: false })
+    if (!siteResult.data) notFound()
+    const site = siteResult.data
+    const files = filesResult.data
 
     return (
-        <div className={`${s.page} animate-fade-in`} style={{ maxWidth: 1100 }}>
+        <div className={`${s.page} animate-fade-in`}>
             <div className={s.breadcrumb}>
                 <Link href="/" className={s.breadcrumbLink}>Dashboard</Link>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>

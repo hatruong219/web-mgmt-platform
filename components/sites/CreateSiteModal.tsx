@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createSiteAction } from '@/app/actions/sites'
 import { slugify } from '@/lib/utils'
 
 interface CreateSiteModalProps {
@@ -18,23 +18,17 @@ export default function CreateSiteModal({ variant = 'default' }: CreateSiteModal
     const [error, setError] = useState<string | null>(null)
     const router = useRouter()
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         setError(null)
 
-        const supabase = createClient()
-        const slug = slugify(name)
+        const formData = new FormData(e.currentTarget)
 
         startTransition(async () => {
-            const { error } = await supabase.from('sites').insert({
-                name: name.trim(),
-                slug,
-                description: description.trim() || null,
-                domain: domain.trim() || null,
-            })
+            const result = await createSiteAction(formData)
 
-            if (error) {
-                setError(error.message)
+            if (result.error) {
+                setError(result.error)
             } else {
                 setOpen(false)
                 setName('')
@@ -77,6 +71,7 @@ export default function CreateSiteModal({ variant = 'default' }: CreateSiteModal
                                 <label className="form-label">Tên website *</label>
                                 <input
                                     id="site-name-input"
+                                    name="name"
                                     type="text"
                                     required
                                     value={name}
@@ -96,6 +91,7 @@ export default function CreateSiteModal({ variant = 'default' }: CreateSiteModal
                                 <label className="form-label">Mô tả</label>
                                 <textarea
                                     id="site-description-input"
+                                    name="description"
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
                                     placeholder="Mô tả ngắn về website..."
@@ -108,6 +104,7 @@ export default function CreateSiteModal({ variant = 'default' }: CreateSiteModal
                                 <label className="form-label">Domain</label>
                                 <input
                                     id="site-domain-input"
+                                    name="domain"
                                     type="text"
                                     value={domain}
                                     onChange={(e) => setDomain(e.target.value)}

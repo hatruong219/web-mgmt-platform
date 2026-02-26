@@ -89,5 +89,33 @@ BEGIN
   END IF;
 END $$;
 
--- BƯỚC 8: Storage bucket (chạy riêng nếu cần)
--- INSERT INTO storage.buckets (id, name, public) VALUES ('media', 'media', true);
+-- BƯỚC 8: Storage bucket
+-- Tạo bucket (nếu chưa có)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('media-bucket', 'media-bucket', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- BƯỚC 9: Storage Policies
+-- Public read — ai cũng có thể xem file (dùng cho public URL)
+CREATE POLICY "public_read_media"
+ON storage.objects FOR SELECT
+TO public
+USING (bucket_id = 'media-bucket');
+
+-- Authenticated users được upload
+CREATE POLICY "auth_insert_media"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'media-bucket');
+
+-- Authenticated users được update
+CREATE POLICY "auth_update_media"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (bucket_id = 'media-bucket');
+
+-- Authenticated users được delete
+CREATE POLICY "auth_delete_media"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (bucket_id = 'media-bucket');

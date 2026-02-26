@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { logoutAction } from '@/app/actions/auth'
 import type { User } from '@supabase/supabase-js'
 import type { Site } from '@/types/database'
 
@@ -94,10 +94,7 @@ export default function Sidebar({ user, sites = [] }: SidebarProps) {
   const userInitials = user.email ? user.email.substring(0, 2).toUpperCase() : 'U'
 
   const handleSignOut = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+    await logoutAction()
   }
 
   const isActive = (href: string, exact = false) => {

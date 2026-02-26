@@ -3,6 +3,8 @@
 import { useState, useCallback, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { deleteMediaAction } from '@/app/actions/media'
+import { STORAGE_BUCKET } from '@/lib/utils'
 import type { MediaFile } from '@/types/database'
 
 interface Props {
@@ -26,9 +28,9 @@ export default function MediaGrid({ siteId, initialFiles }: Props) {
             const ext = file.name.split('.').pop()
             const fileName = `${siteId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
 
-            const { data, error } = await supabase.storage.from('media').upload(fileName, file)
+            const { data, error } = await supabase.storage.from(STORAGE_BUCKET).upload(fileName, file)
             if (!error && data) {
-                const { data: urlData } = supabase.storage.from('media').getPublicUrl(data.path)
+                const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(data.path)
 
                 await supabase.from('media').insert({
                     site_id: siteId,
@@ -79,15 +81,12 @@ export default function MediaGrid({ siteId, initialFiles }: Props) {
     }
 
     const deleteFile = async (file: MediaFile) => {
-        if (!confirm('Xóa file này?')) return
-        const supabase = createClient()
+        if (!confirm('Xóa file này khỏi Media Library?\n(File vẫn được giữ trong Storage, bài viết đang dùng sẽ không bị ảnh hưởng)')) return
         startTransition(async () => {
-            // Delete from storage
-            const path = file.url.split('/media/')[1]
-            if (path) await supabase.storage.from('media').remove([decodeURIComponent(path)])
-            // Delete from DB
-            await supabase.from('media').delete().eq('id', file.id)
-            setFiles((prev) => prev.filter((f) => f.id !== file.id))
+            const result = await deleteMediaAction(file.id, file.url, siteId)
+            if (result.success) {
+                setFiles((prev) => prev.filter((f) => f.id !== file.id))
+            }
         })
     }
 
