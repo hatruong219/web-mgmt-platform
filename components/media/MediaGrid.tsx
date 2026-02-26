@@ -81,7 +81,7 @@ export default function MediaGrid({ siteId, initialFiles }: Props) {
     }
 
     const deleteFile = async (file: MediaFile) => {
-        if (!confirm('Xóa file này?')) return
+        if (!confirm('Xóa file này khỏi Media Library?\n(File vẫn được giữ trong Storage, bài viết đang dùng sẽ không bị ảnh hưởng)')) return
         startTransition(async () => {
             const result = await deleteMediaAction(file.id, file.url, siteId)
             if (result.success) {

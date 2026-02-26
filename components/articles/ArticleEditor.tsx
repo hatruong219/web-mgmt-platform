@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { createArticleAction, updateArticleAction } from '@/app/actions/articles'
 import { slugify, STORAGE_BUCKET } from '@/lib/utils'
 import TiptapEditor from '@/components/editor/TiptapEditor'
+import MediaPickerModal from '@/components/media/MediaPickerModal'
 import type { Article } from '@/types/database'
 
 interface ArticleEditorProps {
@@ -29,6 +30,8 @@ export default function ArticleEditor({ siteId, siteName, article }: ArticleEdit
 
     const [saved, setSaved] = useState(true)
     const [lastSaved, setLastSaved] = useState<string | null>(null)
+    const [showCoverPicker, setShowCoverPicker] = useState(false)
+    const [coverUploading, setCoverUploading] = useState(false)
 
     // Auto-save debounce
     useEffect(() => {
@@ -67,15 +70,28 @@ export default function ArticleEditor({ siteId, siteName, article }: ArticleEdit
         const file = e.target.files?.[0]
         if (!file) return
 
-        const supabase = createClient()
-        const ext = file.name.split('.').pop()
-        const fileName = `${siteId}/${Date.now()}.${ext}`
+        setCoverUploading(true)
+        try {
+            const supabase = createClient()
+            const ext = file.name.split('.').pop()
+            const fileName = `${siteId}/${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`
 
-        const { data, error } = await supabase.storage.from(STORAGE_BUCKET).upload(fileName, file)
-        if (!error && data) {
-            const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(data.path)
-            setCoverImage(urlData.publicUrl)
-            markUnsaved()
+            const { data, error } = await supabase.storage.from(STORAGE_BUCKET).upload(fileName, file)
+            if (!error && data) {
+                const { data: urlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(data.path)
+                // Ghi vào media table để track trong Media Library
+                await supabase.from('media').insert({
+                    site_id: siteId,
+                    filename: file.name,
+                    url: urlData.publicUrl,
+                    mime_type: file.type,
+                    size: file.size,
+                })
+                setCoverImage(urlData.publicUrl)
+                markUnsaved()
+            }
+        } finally {
+            setCoverUploading(false)
         }
     }
 
@@ -142,6 +158,7 @@ export default function ArticleEditor({ siteId, siteName, article }: ArticleEdit
                     <TiptapEditor
                         content={content}
                         onChange={(html) => { setContent(html); markUnsaved() }}
+                        siteId={siteId}
                     />
                 </div>
 
@@ -159,15 +176,35 @@ export default function ArticleEditor({ siteId, siteName, article }: ArticleEdit
                                     </svg>
                                 </button>
                             </div>
+                        ) : coverUploading ? (
+                            <div className="cover-uploading">
+                                <span className="cover-spinner" />
+                                <span>Đang upload...</span>
+                            </div>
                         ) : (
-                            <label className="cover-upload">
-                                <input type="file" accept="image/*" onChange={handleCoverUpload} hidden />
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
-                                </svg>
-                                <span>Upload ảnh bìa</span>
-                            </label>
+                            <div className="cover-options">
+                                <label className="cover-upload">
+                                    <input type="file" accept="image/*" onChange={handleCoverUpload} hidden />
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                        <polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+                                    </svg>
+                                    <span>Upload ảnh bìa</span>
+                                </label>
+                                <button type="button" className="cover-pick-media" onClick={() => setShowCoverPicker(true)}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+                                    </svg>
+                                    <span>Chọn từ Media</span>
+                                </button>
+                            </div>
                         )}
+                        <MediaPickerModal
+                            siteId={siteId}
+                            open={showCoverPicker}
+                            onClose={() => setShowCoverPicker(false)}
+                            onSelect={(url) => { setCoverImage(url); markUnsaved() }}
+                        />
                     </div>
 
                     {/* Excerpt */}
@@ -265,12 +302,30 @@ export default function ArticleEditor({ siteId, siteName, article }: ArticleEdit
           display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s;
         }
         .cover-remove:hover { background:hsl(var(--destructive)); }
+        .cover-uploading {
+          display:flex; align-items:center; justify-content:center; gap:0.625rem;
+          padding:1.25rem; border:2px dashed hsl(var(--primary)/.3); border-radius:0.5rem;
+          color:hsl(var(--primary)); font-size:0.8125rem; font-weight:500;
+        }
+        .cover-spinner {
+          width:16px; height:16px; border:2px solid hsl(var(--primary)/.3); border-top-color:hsl(var(--primary));
+          border-radius:50%; animation:coverSpin .6s linear infinite;
+        }
+        @keyframes coverSpin { to { transform:rotate(360deg); } }
+        .cover-options { display:flex; flex-direction:column; gap:0.5rem; }
         .cover-upload {
-          display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.5rem;
-          padding:1.5rem; border:2px dashed hsl(var(--border)); border-radius:0.5rem;
+          display:flex; align-items:center; justify-content:center; gap:0.5rem;
+          padding:0.875rem; border:2px dashed hsl(var(--border)); border-radius:0.5rem;
           color:hsl(var(--muted-foreground)); font-size:0.8125rem; cursor:pointer; transition:all .15s;
         }
         .cover-upload:hover { border-color:hsl(var(--primary)/.5); color:hsl(var(--primary)); }
+        .cover-pick-media {
+          display:flex; align-items:center; justify-content:center; gap:0.5rem;
+          padding:0.625rem; background:hsl(var(--secondary)); border:1px solid hsl(var(--border));
+          border-radius:0.5rem; color:hsl(var(--muted-foreground)); font-size:0.8125rem;
+          cursor:pointer; transition:all .15s; font-family:inherit;
+        }
+        .cover-pick-media:hover { border-color:hsl(var(--primary)/.5); color:hsl(var(--primary)); background:hsl(var(--primary)/.05); }
         @media (max-width: 900px) {
           .editor-body { flex-direction:column; }
           .editor-sidebar { width:100%; }

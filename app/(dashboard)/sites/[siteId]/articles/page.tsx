@@ -20,17 +20,22 @@ export default async function ArticlesPage({ params, searchParams }: Props) {
     const { status, q } = await searchParams
     const supabase = await createClient()
 
-    const { data: site } = await supabase.from('sites').select('name').eq('id', siteId).single()
-    if (!site) notFound()
-
-    let query = supabase
+    let articlesQuery = supabase
         .from('articles').select('*').eq('site_id', siteId)
         .order('created_at', { ascending: false })
 
-    if (status && status !== 'all') query = query.eq('status', status)
-    if (q) query = query.ilike('title', `%${q}%`)
+    if (status && status !== 'all') articlesQuery = articlesQuery.eq('status', status)
+    if (q) articlesQuery = articlesQuery.ilike('title', `%${q}%`)
 
-    const { data: articles } = await query
+    // Chạy song song
+    const [siteResult, articlesResult] = await Promise.all([
+        supabase.from('sites').select('name').eq('id', siteId).single(),
+        articlesQuery,
+    ])
+
+    if (!siteResult.data) notFound()
+    const site = siteResult.data
+    const articles = articlesResult.data
 
     return (
         <div className={`${s.page} animate-fade-in`}>

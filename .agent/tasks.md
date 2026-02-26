@@ -59,16 +59,20 @@
 
 ---
 
-## Sprint 4 — Media Library
+## Sprint 4 — Media Library & Integration
 
 | Status | Task | Notes |
 |--------|------|-------|
 | ✅ | Trang Media Library (`/sites/[siteId]/media`) | Done |
-| ✅ | Setup Supabase Storage bucket `media-bucket` | Public bucket + env var `NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET` |
+| ✅ | Setup Supabase Storage bucket `media-bucket` | Public bucket + env var + RLS policies |
 | ✅ | Component: `MediaGrid` | Upload zone + thumbnail grid |
 | ✅ | Upload logic: file → Supabase Storage → insert `media` record | Client-side upload |
 | ✅ | Copy URL button | Clipboard API |
 | ✅ | Delete media (Storage + DB record) | Dùng Server Action `deleteMediaAction` |
+| ✅ | Component: `MediaPickerModal` | Grid ảnh + tìm kiếm + upload mới trong modal |
+| ✅ | Tích hợp MediaPicker vào TiptapEditor | Nút "Add image" mở Media Picker |
+| ✅ | Tích hợp MediaPicker vào Cover Image | "Upload" + "Chọn từ Media" |
+| ✅ | Mọi upload đều ghi `media` record | Cover upload trong editor cũng ghi DB |
 
 ---
 

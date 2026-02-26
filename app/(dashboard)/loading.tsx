@@ -2,7 +2,7 @@ import { StatSkeleton, CardSkeleton } from '@/components/ui/Skeleton'
 
 export default function DashboardLoading() {
   return (
-    <div style={{ maxWidth: 1000 }}>
+    <div style={{ width: '100%' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
         <div>

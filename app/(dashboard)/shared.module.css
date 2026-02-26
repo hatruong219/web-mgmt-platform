@@ -1,6 +1,6 @@
 /* Shared page styles for server components */
 .page {
-    max-width: 1000px;
+    width: 100%;
 }
 
 .breadcrumb {

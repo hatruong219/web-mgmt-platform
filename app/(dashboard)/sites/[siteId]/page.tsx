@@ -21,21 +21,22 @@ export default async function SiteOverviewPage({ params }: Props) {
   const { siteId } = await params
   const supabase = await createClient()
 
-  const { data: site } = await supabase.from('sites').select('*').eq('id', siteId).single()
-  if (!site) notFound()
+  // Chạy tất cả queries song song thay vì tuần tự
+  const [siteResult, articlesResult, totalResult, publishedResult, draftResult] = await Promise.all([
+    supabase.from('sites').select('*').eq('id', siteId).single(),
+    supabase.from('articles').select('*').eq('site_id', siteId).order('created_at', { ascending: false }).limit(5),
+    supabase.from('articles').select('*', { count: 'exact', head: true }).eq('site_id', siteId),
+    supabase.from('articles').select('*', { count: 'exact', head: true }).eq('site_id', siteId).eq('status', 'published'),
+    supabase.from('articles').select('*', { count: 'exact', head: true }).eq('site_id', siteId).eq('status', 'draft'),
+  ])
 
-  const { data: articles } = await supabase
-    .from('articles').select('*').eq('site_id', siteId)
-    .order('created_at', { ascending: false }).limit(5)
+  if (!siteResult.data) notFound()
 
-  const { count: totalCount } = await supabase
-    .from('articles').select('*', { count: 'exact', head: true }).eq('site_id', siteId)
-  const { count: publishedCount } = await supabase
-    .from('articles').select('*', { count: 'exact', head: true }).eq('site_id', siteId).eq('status', 'published')
-  const { count: draftCount } = await supabase
-    .from('articles').select('*', { count: 'exact', head: true }).eq('site_id', siteId).eq('status', 'draft')
-
-  const typedSite = site as Site
+  const typedSite = siteResult.data as Site
+  const articles = articlesResult.data
+  const totalCount = totalResult.count
+  const publishedCount = publishedResult.count
+  const draftCount = draftResult.count
 
   return (
     <div className={`${s.page} animate-fade-in`}>

@@ -28,12 +28,7 @@ export default async function SettingsPage({ params }: Props) {
                 <span>Cài đặt</span>
             </div>
 
-            <h1 className={s.pageTitle}>Cài đặt</h1>
-            <p className={s.pageSubtitle}>Quản lý thông tin website</p>
-
-            <div style={{ marginTop: '1.5rem' }}>
-                <SiteSettingsForm site={site} />
-            </div>
+            <SiteSettingsForm site={site} />
         </div>
     )
 }

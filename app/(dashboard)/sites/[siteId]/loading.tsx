@@ -2,7 +2,7 @@ import { StatSkeleton, ArticleRowSkeleton } from '@/components/ui/Skeleton'
 
 export default function SiteOverviewLoading() {
   return (
-    <div style={{ maxWidth: 1000 }}>
+    <div style={{ width: '100%' }}>
       {/* Breadcrumb */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
         <div className="skeleton" style={{ width: 80, height: 16, borderRadius: 4 }} />

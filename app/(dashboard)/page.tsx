@@ -13,14 +13,14 @@ export const metadata: Metadata = {
 export default async function DashboardPage() {
   const supabase = await createClient()
 
-  const { data: sites } = await supabase
-    .from('sites')
-    .select('*')
-    .order('created_at', { ascending: false })
+  // Chạy song song
+  const [sitesResult, articleCountsResult] = await Promise.all([
+    supabase.from('sites').select('*').order('created_at', { ascending: false }),
+    supabase.from('articles').select('site_id'),
+  ])
 
-  const { data: articleCounts } = await supabase
-    .from('articles')
-    .select('site_id')
+  const sites = sitesResult.data
+  const articleCounts = articleCountsResult.data
 
   const countBySite = (articleCounts || []).reduce<Record<string, number>>(
     (acc, row) => {

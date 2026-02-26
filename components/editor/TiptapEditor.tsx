@@ -5,15 +5,18 @@ import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import LinkExtension from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
+import MediaPickerModal from '@/components/media/MediaPickerModal'
 
 interface TiptapEditorProps {
     content: string
     onChange: (html: string) => void
+    siteId?: string
     placeholder?: string
 }
 
-export default function TiptapEditor({ content, onChange, placeholder = 'Bắt đầu viết nội dung...' }: TiptapEditorProps) {
+export default function TiptapEditor({ content, onChange, siteId, placeholder = 'Bắt đầu viết nội dung...' }: TiptapEditorProps) {
+    const [showMediaPicker, setShowMediaPicker] = useState(false)
     const editor = useEditor({
         extensions: [
             StarterKit.configure({
@@ -24,6 +27,7 @@ export default function TiptapEditor({ content, onChange, placeholder = 'Bắt �
             Placeholder.configure({ placeholder }),
         ],
         content,
+        immediatelyRender: false,
         onUpdate: ({ editor }) => {
             onChange(editor.getHTML())
         },
@@ -36,8 +40,19 @@ export default function TiptapEditor({ content, onChange, placeholder = 'Bắt �
 
     const addImage = useCallback(() => {
         if (!editor) return
-        const url = window.prompt('Image URL:')
-        if (url) editor.chain().focus().setImage({ src: url }).run()
+        if (siteId) {
+            // Mở Media Picker modal
+            setShowMediaPicker(true)
+        } else {
+            // Fallback: nhập URL
+            const url = window.prompt('Image URL:')
+            if (url) editor.chain().focus().setImage({ src: url }).run()
+        }
+    }, [editor, siteId])
+
+    const handleMediaSelect = useCallback((url: string) => {
+        if (!editor) return
+        editor.chain().focus().setImage({ src: url }).run()
     }, [editor])
 
     const addLink = useCallback(() => {
@@ -50,6 +65,16 @@ export default function TiptapEditor({ content, onChange, placeholder = 'Bắt �
 
     return (
         <div className="editor-wrapper">
+            {/* Media Picker Modal */}
+            {siteId && (
+                <MediaPickerModal
+                    siteId={siteId}
+                    open={showMediaPicker}
+                    onClose={() => setShowMediaPicker(false)}
+                    onSelect={handleMediaSelect}
+                />
+            )}
+
             {/* Toolbar */}
             <div className="toolbar">
                 <div className="toolbar-group">
