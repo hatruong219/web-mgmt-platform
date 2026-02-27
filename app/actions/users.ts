@@ -5,11 +5,18 @@ import { revalidatePath } from 'next/cache'
 import { getCurrentUser, isSuperAdmin, isSiteAdmin } from '@/lib/permissions'
 import type { SiteRole } from '@/types/database'
 import crypto from 'crypto'
+import { sendInviteEmail } from '@/lib/email'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export type ActionResult = {
   error?: string
   success?: boolean
   data?: unknown
+}
+
+type InviteAuthFormFields = {
+  password: string
+  fullName?: string
 }
 
 /**
@@ -107,9 +114,39 @@ export async function inviteUserAction(formData: FormData): Promise<ActionResult
     return { error: 'Không thể tạo lời mời' }
   }
 
-  // TODO: Send email with invitation link
-  // For now, just return success with token (for testing)
-  
+  // Build invite URL (absolute) để gửi qua email
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const inviteUrl = `${appUrl}/invite/${token}`
+
+  // Gửi email (best-effort, không chặn flow nếu lỗi)
+  try {
+    const roleLabel =
+      role === 'admin' ? 'Admin' : role === 'editor' ? 'Editor' : 'Viewer'
+
+    // Lấy tên site nếu có để email thân thiện hơn
+    let siteName: string | undefined
+    if (siteId) {
+      const { data: site } = await supabase
+        .from('sites')
+        .select('name')
+        .eq('id', siteId)
+        .single()
+
+      siteName = site?.name ?? undefined
+    }
+
+    await sendInviteEmail({
+      to: email,
+      inviteUrl,
+      siteName,
+      roleLabel,
+      invitedByEmail: currentUser.email,
+    })
+  } catch (emailError) {
+    console.error('Send invite email error:', emailError)
+    // Không trả error cho client — vẫn coi là tạo lời mời thành công
+  }
+
   revalidatePath('/users')
   if (siteId) {
     revalidatePath(`/sites/${siteId}/members`)
@@ -129,6 +166,7 @@ export async function inviteUserAction(formData: FormData): Promise<ActionResult
  */
 export async function acceptInvitationAction(token: string): Promise<ActionResult> {
   const supabase = await createClient()
+  const adminClient = createAdminClient()
 
   // Get current user
   const { data: { user } } = await supabase.auth.getUser()
@@ -164,7 +202,7 @@ export async function acceptInvitationAction(token: string): Promise<ActionResul
 
   // Add user to site_members if site_id exists
   if (invitation.site_id) {
-    const { error: memberError } = await supabase
+    const { error: memberError } = await adminClient
       .from('site_members')
       .insert({
         site_id: invitation.site_id,
@@ -180,14 +218,141 @@ export async function acceptInvitationAction(token: string): Promise<ActionResul
     }
   }
 
-  // Mark invitation as accepted
-  await supabase
+  // Đánh dấu invitation đã được chấp nhận (dùng admin client để bỏ qua RLS)
+  const { error: updateInviteError } = await adminClient
     .from('invitations')
     .update({ accepted_at: new Date().toISOString() })
     .eq('id', invitation.id)
 
+  if (updateInviteError) {
+    console.error('Mark invitation accepted error:', updateInviteError)
+  }
+
   revalidatePath('/users')
   revalidatePath('/')
+
+  return { success: true }
+}
+
+/**
+ * Login + accept invitation in a single server action.
+ * Used from the invite page so that we don't rely on the client Supabase
+ * instance to propagate auth state before accepting.
+ */
+export async function loginAndAcceptInvitationAction(
+  token: string,
+  email: string,
+  formData: FormData
+): Promise<ActionResult> {
+  const password = formData.get('password')
+
+  if (typeof password !== 'string' || password.length === 0) {
+    return { error: 'Mật khẩu là bắt buộc' }
+  }
+
+  const supabase = await createClient()
+
+  const { error: authError } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
+
+  if (authError) {
+    return { error: authError.message }
+  }
+
+  // Auth cookies are now set on this request; we can safely reuse
+  // the existing acceptInvitationAction which expects a logged-in user.
+  return acceptInvitationAction(token)
+}
+
+/**
+ * Signup + accept invitation in a single server action.
+ * This fixes the UX where a freshly created user was asked to "login"
+ * again before being able to accept the invite.
+ */
+export async function signupAndAcceptInvitationAction(
+  token: string,
+  email: string,
+  formData: FormData
+): Promise<ActionResult> {
+  const raw: InviteAuthFormFields = {
+    password: formData.get('password') as string,
+    fullName: formData.get('fullName') as string | null | undefined ?? undefined,
+  }
+
+  if (!raw.password || raw.password.length < 6) {
+    return { error: 'Mật khẩu phải có ít nhất 6 ký tự' }
+  }
+
+  const supabase = await createClient()
+
+  const { error: authError } = await supabase.auth.signUp({
+    email,
+    password: raw.password,
+    options: raw.fullName
+      ? {
+          data: {
+            full_name: raw.fullName,
+          },
+        }
+      : undefined,
+  })
+
+  if (authError) {
+    return { error: authError.message }
+  }
+
+  // After successful signup, immediately accept the invitation under
+  // the newly created authenticated user.
+  return acceptInvitationAction(token)
+}
+
+/**
+ * Permanently delete a user from the platform (Super Admin only).
+ * This removes the auth user and cascades to profiles/site_members via FK.
+ */
+export async function deleteUserAction(userId: string): Promise<ActionResult> {
+  const currentUser = await getCurrentUser()
+
+  if (!currentUser) {
+    return { error: 'Chưa đăng nhập' }
+  }
+
+  if (currentUser.role !== 'super_admin') {
+    return { error: 'Chỉ Super Admin mới có thể xóa user' }
+  }
+
+  if (currentUser.id === userId) {
+    return { error: 'Không thể tự xóa tài khoản Super Admin của chính bạn' }
+  }
+
+  const supabase = await createClient()
+
+  const { data: target, error: fetchError } = await supabase
+    .from('profiles')
+    .select('id, role, email')
+    .eq('id', userId)
+    .single()
+
+  if (fetchError || !target) {
+    return { error: 'User không tồn tại' }
+  }
+
+  if (target.role === 'super_admin') {
+    return { error: 'Không thể xóa Super Admin' }
+  }
+
+  const adminClient = createAdminClient()
+
+  const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId)
+
+  if (deleteError) {
+    console.error('Delete user error:', deleteError)
+    return { error: 'Không thể xóa user' }
+  }
+
+  revalidatePath('/users')
 
   return { success: true }
 }

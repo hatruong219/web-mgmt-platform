@@ -1,12 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
-import { notFound } from 'next/navigation'
-import { isSuperAdmin, canAccessSite, isSiteAdmin } from '@/lib/permissions'
+import { notFound, redirect } from 'next/navigation'
+import { isSuperAdmin, canAccessSite, isSiteAdmin, getSiteRole } from '@/lib/permissions'
 import type { Metadata } from 'next'
 import type { SiteMemberWithProfile, InvitationWithSite } from '@/types/database'
 import { UserAvatar } from '@/components/users/UserAvatar'
 import { UserRoleBadge } from '@/components/users/UserRoleBadge'
 import { AddMemberModal } from '@/components/members/AddMemberModal'
 import { RemoveMemberButton } from '@/components/members/RemoveMemberButton'
+import { CopyInviteLinkButton } from '@/components/users/CopyInviteLinkButton'
+import { CancelInvitationButton } from '@/components/users/CancelInvitationButton'
 import { formatDate } from '@/lib/utils'
 import styles from './page.module.css'
 
@@ -20,6 +22,14 @@ interface PageProps {
 
 export default async function SiteMembersPage({ params }: PageProps) {
   const { siteId } = await params
+  const siteRole = await getSiteRole(siteId)
+  if (!siteRole) notFound()
+
+  // Editor/viewer cannot manage members
+  if (siteRole !== 'admin') {
+    redirect(`/sites/${siteId}/articles?forbidden=members`)
+  }
+
   const supabase = await createClient()
 
   // Check access
@@ -44,8 +54,6 @@ export default async function SiteMembersPage({ params }: PageProps) {
   const siteAdmin = await isSiteAdmin(siteId)
   const canManage = superAdmin || siteAdmin
   
-  console.log('[Members] superAdmin:', superAdmin, 'siteAdmin:', siteAdmin, 'canManage:', canManage)
-
   // Fetch members and pending invitations
   const [membersResult, invitationsResult] = await Promise.all([
     supabase
@@ -109,6 +117,14 @@ export default async function SiteMembersPage({ params }: PageProps) {
                       Hết hạn: {formatDate(invitation.expires_at)}
                     </span>
                   </div>
+                </div>
+                <div className={styles.invitationActions}>
+                  <CopyInviteLinkButton token={invitation.token} />
+                  <CancelInvitationButton
+                    invitationId={invitation.id}
+                    email={invitation.email}
+                    siteName={site.name}
+                  />
                 </div>
               </div>
             ))}

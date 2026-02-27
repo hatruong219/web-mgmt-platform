@@ -175,10 +175,10 @@ export function InviteUserModal({
               </svg>
             </div>
             <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-              Lời mời đã được tạo!
+              Lời mời đã được tạo và gửi email!
             </h3>
             <p style={{ fontSize: '0.875rem', color: 'hsl(var(--muted-foreground))', marginBottom: '1rem' }}>
-              Gửi link dưới đây cho người được mời
+              Đây là link dự phòng, nếu cần bạn có thể copy và gửi thủ công.
             </p>
             <div
               style={{

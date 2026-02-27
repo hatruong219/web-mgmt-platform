@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import { notFound } from 'next/navigation'
-import { canAccessSite, isSiteAdmin } from '@/lib/permissions'
+import { notFound, redirect } from 'next/navigation'
+import { canAccessSite, isSiteAdmin, getSiteRole } from '@/lib/permissions'
 import type { Metadata } from 'next'
 import type { SiteClient } from '@/types/database'
 import { ClientsTable } from '@/components/clients/ClientsTable'
@@ -26,6 +26,14 @@ const PAGE_SIZE = 20
 export default async function SiteClientsPage({ params, searchParams }: PageProps) {
   const { siteId } = await params
   const { page = '1', search, provider, status } = await searchParams
+
+  const siteRole = await getSiteRole(siteId)
+  if (!siteRole) notFound()
+
+  // Editor/viewer cannot access Clients
+  if (siteRole !== 'admin') {
+    redirect(`/sites/${siteId}/articles?forbidden=clients`)
+  }
 
   // Check access
   const hasAccess = await canAccessSite(siteId)

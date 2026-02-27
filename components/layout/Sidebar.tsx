@@ -101,9 +101,15 @@ interface SidebarProps {
   user: User
   sites?: Site[]
   userRole?: PlatformRole
+  siteRolesById?: Record<string, 'admin' | 'editor' | 'viewer'>
 }
 
-export default function Sidebar({ user, sites = [], userRole = 'editor' }: SidebarProps) {
+export default function Sidebar({
+  user,
+  sites = [],
+  userRole = 'editor',
+  siteRolesById = {},
+}: SidebarProps) {
   const pathname = usePathname()
   const [showSiteSwitcher, setShowSiteSwitcher] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
@@ -112,6 +118,7 @@ export default function Sidebar({ user, sites = [], userRole = 'editor' }: Sideb
   const siteMatch = pathname.match(/^\/sites\/([^/]+)/)
   const activeSiteId = siteMatch ? siteMatch[1] : null
   const activeSite = sites.find((s) => s.id === activeSiteId) ?? null
+  const activeSiteRole = activeSiteId ? siteRolesById[activeSiteId] : undefined
 
   // ── Assign color per site (stable by index in array) ─────────────────────
   const getSiteColor = (siteId: string) => {
@@ -265,10 +272,12 @@ export default function Sidebar({ user, sites = [], userRole = 'editor' }: Sideb
                 <p className="site-switcher-dropdown-label">Chuyển sang</p>
                 {sites.filter((s) => s.id !== activeSite.id && s.status === 'active').map((site) => {
                   const c = getSiteColor(site.id)
+                  const targetHref =
+                    siteRolesById[site.id] === 'admin' ? `/sites/${site.id}` : `/sites/${site.id}/articles`
                   return (
                     <Link
                       key={site.id}
-                      href={`/sites/${site.id}`}
+                      href={targetHref}
                       className="site-switcher-option"
                       onClick={() => setShowSiteSwitcher(false)}
                     >
@@ -292,13 +301,15 @@ export default function Sidebar({ user, sites = [], userRole = 'editor' }: Sideb
           {/* Site-specific nav */}
           <nav className="sidebar-nav">
             <p className="sidebar-nav-label">Quản lý</p>
-            <Link
-              href={`/sites/${activeSite.id}`}
-              className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}`, true) ? 'active' : ''}`}
-            >
-              <span className="sidebar-nav-icon">{Icons.overview}</span>
-              Tổng quan
-            </Link>
+            {activeSiteRole === 'admin' && (
+              <Link
+                href={`/sites/${activeSite.id}`}
+                className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}`, true) ? 'active' : ''}`}
+              >
+                <span className="sidebar-nav-icon">{Icons.overview}</span>
+                Tổng quan
+              </Link>
+            )}
             <Link
               href={`/sites/${activeSite.id}/articles`}
               className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}/articles`) ? 'active' : ''}`}
@@ -313,27 +324,31 @@ export default function Sidebar({ user, sites = [], userRole = 'editor' }: Sideb
               <span className="sidebar-nav-icon">{Icons.image}</span>
               Media
             </Link>
-            <Link
-              href={`/sites/${activeSite.id}/members`}
-              className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}/members`) ? 'active' : ''}`}
-            >
-              <span className="sidebar-nav-icon">{Icons.users}</span>
-              Members
-            </Link>
-            <Link
-              href={`/sites/${activeSite.id}/clients`}
-              className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}/clients`) ? 'active' : ''}`}
-            >
-              <span className="sidebar-nav-icon">{Icons.clients}</span>
-              Clients
-            </Link>
-            <Link
-              href={`/sites/${activeSite.id}/settings`}
-              className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}/settings`) ? 'active' : ''}`}
-            >
-              <span className="sidebar-nav-icon">{Icons.settings}</span>
-              Cài đặt
-            </Link>
+            {activeSiteRole === 'admin' && (
+              <>
+                <Link
+                  href={`/sites/${activeSite.id}/members`}
+                  className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}/members`) ? 'active' : ''}`}
+                >
+                  <span className="sidebar-nav-icon">{Icons.users}</span>
+                  Members
+                </Link>
+                <Link
+                  href={`/sites/${activeSite.id}/clients`}
+                  className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}/clients`) ? 'active' : ''}`}
+                >
+                  <span className="sidebar-nav-icon">{Icons.clients}</span>
+                  Clients
+                </Link>
+                <Link
+                  href={`/sites/${activeSite.id}/settings`}
+                  className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}/settings`) ? 'active' : ''}`}
+                >
+                  <span className="sidebar-nav-icon">{Icons.settings}</span>
+                  Cài đặt
+                </Link>
+              </>
+            )}
           </nav>
 
           {/* Back to all sites */}

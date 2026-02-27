@@ -6,18 +6,24 @@ import type { Article } from '@/types/database'
 import { formatDate } from '@/lib/utils'
 import ArticleFilters from '@/components/articles/ArticleFilters'
 import DeleteArticleButton from '@/components/articles/DeleteArticleButton'
+import { canAccessSite, getSiteRole } from '@/lib/permissions'
 import s from '../../../shared.module.css'
 
 interface Props {
     params: Promise<{ siteId: string }>
-    searchParams: Promise<{ status?: string; q?: string }>
+    searchParams: Promise<{ status?: string; q?: string; forbidden?: string }>
 }
 
 export const metadata: Metadata = { title: 'Bài viết' }
 
 export default async function ArticlesPage({ params, searchParams }: Props) {
     const { siteId } = await params
-    const { status, q } = await searchParams
+    const { status, q, forbidden } = await searchParams
+    const siteRole = await getSiteRole(siteId)
+
+    const hasAccess = await canAccessSite(siteId)
+    if (!hasAccess || !siteRole) notFound()
+
     const supabase = await createClient()
 
     let articlesQuery = supabase
@@ -36,16 +42,37 @@ export default async function ArticlesPage({ params, searchParams }: Props) {
     if (!siteResult.data) notFound()
     const site = siteResult.data
     const articles = articlesResult.data
+    const siteHomeHref = siteRole === 'admin' ? `/sites/${siteId}` : `/sites/${siteId}/articles`
 
     return (
         <div className={`${s.page} animate-fade-in`}>
             <div className={s.breadcrumb}>
                 <Link href="/" className={s.breadcrumbLink}>Dashboard</Link>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
-                <Link href={`/sites/${siteId}`} className={s.breadcrumbLink}>{site.name}</Link>
+                <Link href={siteHomeHref} className={s.breadcrumbLink}>{site.name}</Link>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
                 <span>Bài viết</span>
             </div>
+
+            {forbidden && (
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.75rem 1rem',
+                        marginBottom: '1rem',
+                        background: 'hsl(var(--destructive) / 0.12)',
+                        border: '1px solid hsl(var(--destructive) / 0.3)',
+                        borderRadius: '0.625rem',
+                        color: 'hsl(var(--destructive))',
+                        fontSize: '0.875rem',
+                    }}
+                    role="alert"
+                >
+                    Bạn không có quyền truy cập trang đó.
+                </div>
+            )}
 
             <div className={s.pageHeader}>
                 <div>

@@ -70,6 +70,12 @@
   color: hsl(var(--muted-foreground) / 0.7);
 }
 
+.invitationActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 /* Members Table */
 .membersTable {
   border: 1px solid hsl(var(--border) / 0.5);

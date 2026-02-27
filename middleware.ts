@@ -32,15 +32,22 @@ export async function middleware(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession()
 
-  const isAuthPage = request.nextUrl.pathname.startsWith('/login')
-  const isPublicApiRoute = request.nextUrl.pathname.startsWith('/api/v1')
+  const pathname = request.nextUrl.pathname
+  const isAuthPage = pathname.startsWith('/login')
+  const isInvitePage = pathname.startsWith('/invite')
+  const isPublicApiRoute = pathname.startsWith('/api/v1')
 
-  if (!session && !isAuthPage && !isPublicApiRoute) {
+  // Require auth for all pages EXCEPT:
+  // - /login (auth page)
+  // - /invite/* (invite acceptance flow: tự xử lý login/signup bên trong)
+  // - /api/v1/* (public API, sẽ có auth riêng)
+  if (!session && !isAuthPage && !isInvitePage && !isPublicApiRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
+  // Đã đăng nhập mà vào /login thì đẩy về dashboard
   if (session && isAuthPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/'

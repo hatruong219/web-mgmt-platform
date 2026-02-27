@@ -1,9 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import type { Site, Article } from '@/types/database'
 import { formatDate } from '@/lib/utils'
+import { getSiteRole } from '@/lib/permissions'
 import s from '../../shared.module.css'
 
 interface Props {
@@ -19,6 +20,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SiteOverviewPage({ params }: Props) {
   const { siteId } = await params
+  const siteRole = await getSiteRole(siteId)
+
+  if (!siteRole) {
+    notFound()
+  }
+
+  // Editor/viewer: cannot access overview, redirect to Articles.
+  if (siteRole !== 'admin') {
+    redirect(`/sites/${siteId}/articles?forbidden=overview`)
+  }
+
   const supabase = await createClient()
 
   // Chạy tất cả queries song song thay vì tuần tự

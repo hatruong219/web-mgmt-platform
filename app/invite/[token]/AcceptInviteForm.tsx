@@ -2,8 +2,11 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { acceptInvitationAction } from '@/app/actions/users'
-import { createClient } from '@/lib/supabase/client'
+import {
+  acceptInvitationAction,
+  loginAndAcceptInvitationAction,
+  signupAndAcceptInvitationAction,
+} from '@/app/actions/users'
 
 interface AcceptInviteFormProps {
   token: string
@@ -39,22 +42,7 @@ export function AcceptInviteForm({ token, email, isLoggedIn, userEmail }: Accept
     setError(null)
 
     const formData = new FormData(e.currentTarget)
-    const password = formData.get('password') as string
-
-    const supabase = createClient()
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    if (authError) {
-      setError(authError.message)
-      setLoading(false)
-      return
-    }
-
-    // After login, accept the invitation
-    const result = await acceptInvitationAction(token)
+    const result = await loginAndAcceptInvitationAction(token, email, formData)
 
     if (result.error) {
       setError(result.error)
@@ -71,28 +59,7 @@ export function AcceptInviteForm({ token, email, isLoggedIn, userEmail }: Accept
     setError(null)
 
     const formData = new FormData(e.currentTarget)
-    const password = formData.get('password') as string
-    const fullName = formData.get('fullName') as string
-
-    const supabase = createClient()
-    const { error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-      },
-    })
-
-    if (authError) {
-      setError(authError.message)
-      setLoading(false)
-      return
-    }
-
-    // After signup, accept the invitation
-    const result = await acceptInvitationAction(token)
+    const result = await signupAndAcceptInvitationAction(token, email, formData)
 
     if (result.error) {
       setError(result.error)
@@ -192,7 +159,10 @@ export function AcceptInviteForm({ token, email, isLoggedIn, userEmail }: Accept
         borderRadius: '0.5rem',
       }}>
         <button
-          onClick={() => setMode('login')}
+          onClick={() => {
+            setMode('login')
+            setError(null)
+          }}
           style={{
             flex: 1,
             padding: '0.5rem',
@@ -208,7 +178,10 @@ export function AcceptInviteForm({ token, email, isLoggedIn, userEmail }: Accept
           Đăng nhập
         </button>
         <button
-          onClick={() => setMode('signup')}
+          onClick={() => {
+            setMode('signup')
+            setError(null)
+          }}
           style={{
             flex: 1,
             padding: '0.5rem',
