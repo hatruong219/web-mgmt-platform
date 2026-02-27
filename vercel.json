@@ -1,0 +1,4 @@
+{
+  "//": "Chỉ deploy khi là production build (tức là push/merge vào branch production trong Vercel). Mọi deploy preview sẽ bị bỏ qua.",
+  "ignoreCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then exit 1; else exit 0; fi"
+}

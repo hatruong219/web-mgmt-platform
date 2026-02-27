@@ -1,5 +1,6 @@
 -- =============================================
 -- Web Management Platform — Database Schema
+-- Migration 001: Initial Schema
 -- Chạy file SQL này trong Supabase SQL Editor
 -- =============================================
 

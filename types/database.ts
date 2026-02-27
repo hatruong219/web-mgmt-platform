@@ -44,7 +44,60 @@ export interface MediaFile {
   created_at: string
 }
 
-// Joined types
+// ─── User Management Types ─────────────────────────────────────────────────
+
+export type PlatformRole = 'super_admin' | 'admin' | 'editor'
+export type SiteRole = 'admin' | 'editor' | 'viewer'
+
+export interface Profile {
+  id: string
+  email: string
+  full_name: string | null
+  avatar_url: string | null
+  role: PlatformRole
+  is_active: boolean
+  metadata: Json
+  created_at: string
+  updated_at: string
+}
+
+export interface SiteMember {
+  id: string
+  site_id: string
+  user_id: string
+  role: SiteRole
+  invited_by: string | null
+  invited_at: string
+  accepted_at: string | null
+}
+
+export interface Invitation {
+  id: string
+  email: string
+  site_id: string | null
+  role: SiteRole
+  token: string
+  invited_by: string | null
+  expires_at: string
+  accepted_at: string | null
+  created_at: string
+}
+
+// ─── Joined Types ──────────────────────────────────────────────────────────
+
 export interface ArticleWithSite extends Article {
   sites: Pick<Site, 'id' | 'name' | 'slug'>
+}
+
+export interface SiteMemberWithProfile extends SiteMember {
+  profiles: Pick<Profile, 'id' | 'email' | 'full_name' | 'avatar_url'>
+}
+
+export interface SiteMemberWithSite extends SiteMember {
+  sites: Pick<Site, 'id' | 'name' | 'slug'>
+}
+
+export interface InvitationWithSite extends Invitation {
+  sites: Pick<Site, 'id' | 'name' | 'slug'> | null
+  inviter?: Pick<Profile, 'id' | 'email' | 'full_name'>
 }

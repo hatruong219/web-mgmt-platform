@@ -509,3 +509,467 @@ web-management-platform/
 - **Analytics**: Thêm table `page_views(site_id, path, count, date)` theo dõi traffic
 - **Comments**: Thêm table `comments(article_id, author, content, approved)`
 - **Newsletter**: Thêm table `subscribers(site_id, email, subscribed_at)`
+
+---
+
+## 9. Phase 2 — User Management & Multi-tenant
+
+> **Mục tiêu**: Hệ thống quản lý user đa cấp — Admin/Editor cho dashboard và Client users cho các site con.
+
+### 9.1 Tổng quan User Types
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    WEB MANAGEMENT PLATFORM                       │
+├─────────────────────────────────────────────────────────────────┤
+│  DASHBOARD USERS (Admin/Editor)                                  │
+│  ├── Super Admin: Quản lý toàn bộ platform                      │
+│  ├── Site Admin: Quản lý sites được assign                      │
+│  └── Editor: Chỉ edit content của sites được assign             │
+├─────────────────────────────────────────────────────────────────┤
+│  SITE CLIENT USERS (End users của các site con)                  │
+│  ├── Subscriber: Đăng ký nhận newsletter                        │
+│  ├── Member: Đăng nhập để comment, like                         │
+│  └── Premium: Truy cập nội dung premium (nếu có)                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 9.2 Database Schema — User Management
+
+```sql
+-- ═══════════════════════════════════════════════════════════════
+-- BẢNG 1: profiles — Thông tin user (extends Supabase auth.users)
+-- ═══════════════════════════════════════════════════════════════
+CREATE TABLE profiles (
+  id          UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email       TEXT NOT NULL,
+  full_name   TEXT,
+  avatar_url  TEXT,
+  role        TEXT DEFAULT 'editor' CHECK (role IN ('super_admin', 'admin', 'editor')),
+  is_active   BOOLEAN DEFAULT true,
+  metadata    JSONB DEFAULT '{}',
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Trigger tự động tạo profile khi user đăng ký
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO profiles (id, email, full_name, avatar_url)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    NEW.raw_user_meta_data->>'full_name',
+    NEW.raw_user_meta_data->>'avatar_url'
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- ═══════════════════════════════════════════════════════════════
+-- BẢNG 2: site_members — Assign users vào sites với role cụ thể
+-- ═══════════════════════════════════════════════════════════════
+CREATE TABLE site_members (
+  id         UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  site_id    UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  user_id    UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  role       TEXT DEFAULT 'editor' CHECK (role IN ('admin', 'editor', 'viewer')),
+  invited_by UUID REFERENCES profiles(id),
+  invited_at TIMESTAMPTZ DEFAULT NOW(),
+  accepted_at TIMESTAMPTZ,
+  UNIQUE(site_id, user_id)
+);
+
+-- ═══════════════════════════════════════════════════════════════
+-- BẢNG 3: site_clients — Users của các site con (subscribers, members)
+-- ═══════════════════════════════════════════════════════════════
+CREATE TABLE site_clients (
+  id            UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  site_id       UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  email         TEXT NOT NULL,
+  password_hash TEXT,                    -- NULL nếu chỉ là subscriber
+  full_name     TEXT,
+  avatar_url    TEXT,
+  role          TEXT DEFAULT 'subscriber' CHECK (role IN ('subscriber', 'member', 'premium')),
+  is_verified   BOOLEAN DEFAULT false,
+  is_active     BOOLEAN DEFAULT true,
+  metadata      JSONB DEFAULT '{}',      -- preferences, subscription info
+  last_login_at TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(site_id, email)
+);
+
+-- ═══════════════════════════════════════════════════════════════
+-- BẢNG 4: invitations — Pending invites cho dashboard users
+-- ═══════════════════════════════════════════════════════════════
+CREATE TABLE invitations (
+  id          UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  email       TEXT NOT NULL,
+  site_id     UUID REFERENCES sites(id) ON DELETE CASCADE,  -- NULL = platform invite
+  role        TEXT NOT NULL,
+  token       TEXT UNIQUE NOT NULL,
+  invited_by  UUID REFERENCES profiles(id),
+  expires_at  TIMESTAMPTZ NOT NULL,
+  accepted_at TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ═══════════════════════════════════════════════════════════════
+-- INDEXES
+-- ═══════════════════════════════════════════════════════════════
+CREATE INDEX idx_site_members_site ON site_members(site_id);
+CREATE INDEX idx_site_members_user ON site_members(user_id);
+CREATE INDEX idx_site_clients_site ON site_clients(site_id);
+CREATE INDEX idx_site_clients_email ON site_clients(site_id, email);
+CREATE INDEX idx_invitations_token ON invitations(token);
+CREATE INDEX idx_invitations_email ON invitations(email);
+
+-- ═══════════════════════════════════════════════════════════════
+-- ROW LEVEL SECURITY POLICIES
+-- ═══════════════════════════════════════════════════════════════
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE site_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE site_clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
+
+-- Profiles: User có thể xem/sửa profile của mình, super_admin xem tất cả
+CREATE POLICY "Users can view own profile" ON profiles
+  FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can update own profile" ON profiles
+  FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Super admin can view all profiles" ON profiles
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin')
+  );
+
+-- Site members: Chỉ admin của site hoặc super_admin mới quản lý được
+CREATE POLICY "Site admins can manage members" ON site_members
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'super_admin'
+    ) OR EXISTS (
+      SELECT 1 FROM site_members sm
+      WHERE sm.site_id = site_members.site_id
+        AND sm.user_id = auth.uid()
+        AND sm.role = 'admin'
+    )
+  );
+
+-- Site clients: Site admin/editor có thể xem clients của site mình
+CREATE POLICY "Site members can view clients" ON site_clients
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM site_members sm
+      WHERE sm.site_id = site_clients.site_id
+        AND sm.user_id = auth.uid()
+    )
+  );
+```
+
+### 9.3 UI Screens — User Management
+
+#### Screen 1: Users List (`/users`)
+- Danh sách tất cả dashboard users (chỉ Super Admin thấy)
+- Filter by role: All / Super Admin / Admin / Editor
+- Search by name/email
+- Actions: Invite user, Edit role, Deactivate
+
+#### Screen 2: Invite User Modal
+- Form: Email, Role (Admin/Editor), Assign to sites (multi-select)
+- Gửi email invitation với magic link
+- Pending invitations list
+
+#### Screen 3: Site Members (`/sites/[siteId]/members`)
+- Danh sách users có quyền truy cập site này
+- Add/Remove members
+- Change member role (Admin/Editor/Viewer)
+
+#### Screen 4: Site Clients (`/sites/[siteId]/clients`)
+- Danh sách end-users của site (subscribers, members)
+- Filter by role: Subscriber / Member / Premium
+- Export to CSV
+- Bulk actions: Send email, Upgrade role
+
+#### Screen 5: User Profile (`/settings/profile`)
+- Edit own profile: Name, Avatar
+- Change password
+- View assigned sites
+
+### 9.4 Permission Matrix
+
+| Action | Super Admin | Site Admin | Site Editor | Site Viewer |
+|--------|-------------|------------|-------------|-------------|
+| View all sites | ✅ | ❌ (chỉ sites được assign) | ❌ | ❌ |
+| Create site | ✅ | ❌ | ❌ | ❌ |
+| Delete site | ✅ | ❌ | ❌ | ❌ |
+| View site clients | ✅ | ✅ | ✅ | ✅ |
+| Export clients | ✅ | ✅ | ❌ | ❌ |
+| Create article | ✅ | ✅ | ✅ | ❌ |
+| Publish article | ✅ | ✅ | ✅ | ❌ |
+| Delete article | ✅ | ✅ | ❌ | ❌ |
+| Upload media | ✅ | ✅ | ✅ | ❌ |
+| Site settings | ✅ | ✅ | ❌ | ❌ |
+| **Add Site Admin** | ✅ | ❌ | ❌ | ❌ |
+| **Add Editor** | ❌ | ✅ (own site only) | ❌ | ❌ |
+| **Remove members** | ✅ (all) | ✅ (editors only) | ❌ | ❌ |
+
+#### User Management Hierarchy
+
+```
+Super Admin
+├── Tạo/Xóa sites
+├── Add Site Admin cho từng site
+├── Remove bất kỳ member nào
+└── Xem tất cả sites
+
+Site Admin (per site)
+├── Add/Remove Editor cho site mình
+├── Quản lý settings của site
+├── Xem clients của site
+└── KHÔNG thể add Site Admin khác
+
+Editor (per site)
+├── Tạo/Edit articles
+├── Upload media
+└── KHÔNG thể invite ai
+```
+
+### 9.5 Implementation Sprints
+
+```
+Sprint 7 — Database & Auth Foundation
+├── [ ] Chạy migration SQL cho profiles, site_members, site_clients, invitations
+├── [ ] Setup trigger tự động tạo profile khi signup
+├── [ ] Cập nhật RLS policies
+├── [ ] Tạo helper functions: getUserRole(), canAccessSite(), etc.
+└── [ ] Update Supabase types: npx supabase gen types typescript
+
+Sprint 8 — Dashboard User Management
+├── [ ] Screen: Users list (/users) — Super Admin only
+├── [ ] Component: InviteUserModal
+├── [ ] Server Action: inviteUserAction() — gửi email invite
+├── [ ] Screen: Accept invitation (/invite/[token])
+├── [ ] Component: UserRoleBadge, UserAvatar
+└── [ ] Update Sidebar: hiển thị menu theo role
+
+Sprint 9 — Site Member Management
+├── [ ] Screen: Site Members (/sites/[siteId]/members)
+├── [ ] Component: AddMemberModal
+├── [ ] Server Action: addSiteMember(), removeSiteMember(), updateMemberRole()
+├── [ ] Update article/media actions: check permission trước khi thực hiện
+└── [ ] Middleware: redirect nếu không có quyền truy cập site
+
+Sprint 10 — Site Client Management
+├── [ ] Screen: Site Clients (/sites/[siteId]/clients)
+├── [ ] Component: ClientsTable với pagination, filter, search
+├── [ ] Server Action: exportClientsCSV()
+├── [ ] API endpoint: /api/v1/sites/[siteId]/clients/subscribe (public)
+├── [ ] API endpoint: /api/v1/sites/[siteId]/clients/login (public)
+└── [ ] Email templates: Welcome, Verify email
+
+Sprint 11 — Profile & Settings
+├── [ ] Screen: User Profile (/settings/profile)
+├── [ ] Component: AvatarUpload
+├── [ ] Server Action: updateProfileAction()
+├── [ ] Screen: Change Password (/settings/security)
+└── [ ] Activity log: track user actions
+```
+
+### 9.6 Site Client Authentication
+
+> **Quan trọng**: Site con tự handle UI login/register bằng **Supabase Auth SDK** trực tiếp.
+> Web Management Platform chỉ cần:
+> 1. Cấu hình Supabase Auth (enable providers, redirect URLs)
+> 2. Dashboard UI để quản lý clients đã đăng ký
+
+#### Supabase Auth Setup (trong Supabase Dashboard)
+
+```
+Authentication → Providers:
+├── Email: ✅ Enabled (confirm email, password recovery)
+├── Google: ✅ Enabled (Client ID, Client Secret từ Google Cloud)
+└── (Optional) Facebook, GitHub, etc.
+
+Authentication → URL Configuration:
+├── Site URL: https://your-site.com
+├── Redirect URLs:
+│   ├── https://site-a.com/auth/callback
+│   ├── https://site-b.com/auth/callback
+│   └── http://localhost:3000/auth/callback (dev)
+```
+
+#### Site con integrate (Example code)
+
+```typescript
+// Site con dùng Supabase Auth SDK trực tiếp
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+// Đăng ký Email/Password
+await supabase.auth.signUp({ email, password })
+
+// Đăng nhập Email/Password  
+await supabase.auth.signInWithPassword({ email, password })
+
+// Đăng nhập Google
+await supabase.auth.signInWithOAuth({ 
+  provider: 'google',
+  options: { redirectTo: 'https://your-site.com/auth/callback' }
+})
+```
+
+#### Dashboard Endpoints (quản lý clients)
+
+```
+# Protected endpoints (dashboard users only)
+GET  /api/v1/sites/:slug/clients              → List all clients của site
+GET  /api/v1/sites/:slug/clients/export       → Export CSV
+PATCH /api/v1/sites/:slug/clients/:id         → Update client info
+DELETE /api/v1/sites/:slug/clients/:id        → Delete/ban client
+```
+
+### 9.8 Dashboard Admin Auth (Không thay đổi)
+
+> **Lưu ý**: Dashboard (`/login`) chỉ có đăng nhập, KHÔNG có đăng ký public.
+> Super Admin sẽ tạo account cho Admin/Editor thông qua màn **Invite User**.
+
+```
+Dashboard Auth Flow:
+1. Super Admin invite user qua email
+2. User nhận email với magic link
+3. User click link → Set password → Account activated
+4. User đăng nhập bằng Email/Password
+```
+
+---
+
+## 10. Phase 3 — Public API & Site Integration
+
+> **Mục tiêu**: Các website con có thể fetch content và authenticate users thông qua API.
+
+### 10.1 API Design
+
+```
+# Content API (Public)
+GET  /api/v1/sites/:slug                      → Site info
+GET  /api/v1/sites/:slug/articles             → Published articles
+GET  /api/v1/sites/:slug/articles/:slug       → Article detail
+GET  /api/v1/sites/:slug/media                → Public media
+
+# Client Auth API (Public)
+POST /api/v1/sites/:slug/auth/register        → Register new client
+POST /api/v1/sites/:slug/auth/login           → Login client
+POST /api/v1/sites/:slug/auth/logout          → Logout
+POST /api/v1/sites/:slug/auth/refresh         → Refresh token
+GET  /api/v1/sites/:slug/auth/me              → Current client profile
+
+# Webhook API
+POST /api/v1/webhooks/article-published       → Notify site khi có bài mới
+POST /api/v1/webhooks/client-registered       → Notify khi có client mới
+```
+
+### 10.2 Authentication Flow cho Site Clients
+
+```
+┌─────────────┐         ┌──────────────────┐         ┌─────────────┐
+│  Site Con   │         │  Management API  │         │  Supabase   │
+│ (Frontend)  │         │   (Next.js)      │         │  Database   │
+└──────┬──────┘         └────────┬─────────┘         └──────┬──────┘
+       │                         │                          │
+       │ POST /auth/login        │                          │
+       │ {email, password}       │                          │
+       ├────────────────────────►│                          │
+       │                         │  Query site_clients      │
+       │                         ├─────────────────────────►│
+       │                         │  Return client data      │
+       │                         │◄─────────────────────────┤
+       │                         │                          │
+       │                         │  Generate JWT token      │
+       │  {token, client}        │                          │
+       │◄────────────────────────┤                          │
+       │                         │                          │
+       │ GET /articles (+ token) │                          │
+       ├────────────────────────►│                          │
+       │                         │  Verify JWT              │
+       │                         │  Query articles          │
+       │                         ├─────────────────────────►│
+       │  {articles}             │◄─────────────────────────┤
+       │◄────────────────────────┤                          │
+```
+
+### 10.3 Implementation Sprints
+
+```
+Sprint 12 — Content API
+├── [ ] Route Handler: GET /api/v1/sites/:slug
+├── [ ] Route Handler: GET /api/v1/sites/:slug/articles
+├── [ ] Route Handler: GET /api/v1/sites/:slug/articles/:slug
+├── [ ] API Key authentication (optional)
+├── [ ] Rate limiting
+└── [ ] Caching với revalidate
+
+Sprint 13 — Client Auth API
+├── [ ] Route Handler: POST /api/v1/sites/:slug/auth/register
+├── [ ] Route Handler: POST /api/v1/sites/:slug/auth/login
+├── [ ] JWT token generation & verification
+├── [ ] Password hashing với bcrypt
+├── [ ] Email verification flow
+└── [ ] Refresh token mechanism
+
+Sprint 14 — SDK & Documentation
+├── [ ] NPM package: @web-mgmt/client-sdk
+├── [ ] API documentation (OpenAPI/Swagger)
+├── [ ] Example: Next.js blog consuming API
+├── [ ] Example: React app với client auth
+└── [ ] Postman collection
+```
+
+---
+
+## 11. Phase 4 — Analytics & Advanced Features
+
+### 11.1 Analytics
+
+```sql
+CREATE TABLE page_views (
+  id         UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  site_id    UUID REFERENCES sites(id) ON DELETE CASCADE,
+  article_id UUID REFERENCES articles(id) ON DELETE SET NULL,
+  path       TEXT NOT NULL,
+  referrer   TEXT,
+  user_agent TEXT,
+  country    TEXT,
+  client_id  UUID REFERENCES site_clients(id),  -- NULL if anonymous
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE analytics_daily (
+  id          UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  site_id     UUID REFERENCES sites(id) ON DELETE CASCADE,
+  date        DATE NOT NULL,
+  page_views  INTEGER DEFAULT 0,
+  unique_visitors INTEGER DEFAULT 0,
+  new_clients INTEGER DEFAULT 0,
+  UNIQUE(site_id, date)
+);
+```
+
+### 11.2 Advanced Features Backlog
+
+- [ ] **Comments system**: Moderated comments on articles
+- [ ] **Newsletter**: Send emails to subscribers
+- [ ] **Scheduled publishing**: Publish articles at specific time
+- [ ] **Article series/categories**: Organize content
+- [ ] **SEO tools**: Meta tags editor, sitemap generation
+- [ ] **A/B testing**: Test different headlines
+- [ ] **Content versioning**: Track article revisions
+- [ ] **Multi-language**: i18n support for content
+- [ ] **Custom domains**: CNAME setup for sites
+- [ ] **Webhooks**: Notify external services on events

@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import { logoutAction } from '@/app/actions/auth'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import type { User } from '@supabase/supabase-js'
-import type { Site } from '@/types/database'
+import type { Site, PlatformRole } from '@/types/database'
 
 // ─── Site accent colors (palette per site index) ────────────────────────────
 const SITE_COLORS = [
@@ -81,14 +81,23 @@ const Icons = {
       <polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   ),
+  users: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  ),
 }
 
 interface SidebarProps {
   user: User
   sites?: Site[]
+  userRole?: PlatformRole
 }
 
-export default function Sidebar({ user, sites = [] }: SidebarProps) {
+export default function Sidebar({ user, sites = [], userRole = 'editor' }: SidebarProps) {
   const pathname = usePathname()
   const [showSiteSwitcher, setShowSiteSwitcher] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
@@ -208,6 +217,12 @@ export default function Sidebar({ user, sites = [] }: SidebarProps) {
             <span className="sidebar-nav-icon">{Icons.grid}</span>
             Dashboard
           </Link>
+          {userRole === 'super_admin' && (
+            <Link href="/users" className={`sidebar-nav-item ${isActive('/users') ? 'active' : ''}`}>
+              <span className="sidebar-nav-icon">{Icons.users}</span>
+              Users
+            </Link>
+          )}
         </nav>
       )}
 
