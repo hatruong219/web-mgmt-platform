@@ -171,7 +171,7 @@ export default function Sidebar({ user, sites = [], userRole = 'editor' }: Sideb
       <div
         className={`sidebar-overlay ${isMobileOpen ? 'open' : ''}`}
         onClick={() => setIsMobileOpen(false)}
-        style={{ display: isMobileOpen ? 'block' : undefined }}
+        style={{ display: isMobileOpen ? 'block' : 'none' }}
       />
 
       <aside

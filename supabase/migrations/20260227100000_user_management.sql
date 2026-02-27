@@ -153,13 +153,16 @@ RETURNS BOOLEAN AS $$
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- RLS POLICIES
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ─── PROFILES ─────────────────────────────────────────────────────────────
--- User can view their own profile (required for helper functions to work)
+-- User can view their own profile
 CREATE POLICY "profiles_select_own" ON profiles
   FOR SELECT USING (id = auth.uid());
+
+-- Super admin can view all profiles (Users page)
+CREATE POLICY "profiles_super_admin_all" ON profiles
+  FOR SELECT USING (is_super_admin());
 
 -- User can update their own profile
 CREATE POLICY "profiles_update_own" ON profiles

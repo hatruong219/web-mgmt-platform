@@ -132,6 +132,9 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE;
 CREATE POLICY "profiles_select_own" ON profiles
   FOR SELECT USING (id = auth.uid());
 
+CREATE POLICY "profiles_super_admin_all" ON profiles
+  FOR SELECT USING (is_super_admin());
+
 CREATE POLICY "profiles_update_own" ON profiles
   FOR UPDATE USING (id = auth.uid());
 
