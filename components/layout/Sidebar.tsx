@@ -89,6 +89,12 @@ const Icons = {
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   ),
+  clients: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  ),
 }
 
 interface SidebarProps {
@@ -306,6 +312,20 @@ export default function Sidebar({ user, sites = [], userRole = 'editor' }: Sideb
             >
               <span className="sidebar-nav-icon">{Icons.image}</span>
               Media
+            </Link>
+            <Link
+              href={`/sites/${activeSite.id}/members`}
+              className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}/members`) ? 'active' : ''}`}
+            >
+              <span className="sidebar-nav-icon">{Icons.users}</span>
+              Members
+            </Link>
+            <Link
+              href={`/sites/${activeSite.id}/clients`}
+              className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}/clients`) ? 'active' : ''}`}
+            >
+              <span className="sidebar-nav-icon">{Icons.clients}</span>
+              Clients
             </Link>
             <Link
               href={`/sites/${activeSite.id}/settings`}

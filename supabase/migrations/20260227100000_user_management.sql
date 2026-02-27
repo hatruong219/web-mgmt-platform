@@ -1,7 +1,7 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Migration: User Management System
 -- Date: 2026-02-27
--- Description: Add profiles, site_members, invitations tables for multi-tenant
+-- Description: Add profiles, site_members, invitations + ALL RLS policies
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -55,8 +55,6 @@ CREATE TABLE IF NOT EXISTS invitations (
 );
 
 COMMENT ON TABLE invitations IS 'Pending invitations for new users';
-COMMENT ON COLUMN invitations.site_id IS 'Target site for the invitation';
-COMMENT ON COLUMN invitations.role IS 'Role to assign when invitation is accepted';
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- INDEXES
@@ -71,15 +69,14 @@ CREATE INDEX IF NOT EXISTS idx_invitations_email ON invitations(email);
 CREATE INDEX IF NOT EXISTS idx_invitations_site ON invitations(site_id);
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- TRIGGER: Auto-update updated_at for profiles
+-- TRIGGERS
 -- ═══════════════════════════════════════════════════════════════════════════
+DROP TRIGGER IF EXISTS set_updated_at_profiles ON profiles;
 CREATE TRIGGER set_updated_at_profiles
   BEFORE UPDATE ON profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- ═══════════════════════════════════════════════════════════════════════════
--- TRIGGER: Auto-create profile when user signs up
--- ═══════════════════════════════════════════════════════════════════════════
+-- Auto-create profile when user signs up
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -89,7 +86,7 @@ BEGIN
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name'),
     NEW.raw_user_meta_data->>'avatar_url',
-    'editor'  -- Default role, Super Admin will upgrade if needed
+    'editor'
   );
   RETURN NEW;
 END;
@@ -101,17 +98,17 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- ROW LEVEL SECURITY - Enable RLS
+-- ENABLE RLS ON NEW TABLES
 -- ═══════════════════════════════════════════════════════════════════════════
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE site_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invitations ENABLE ROW LEVEL SECURITY;
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- HELPER FUNCTIONS (SECURITY DEFINER để tránh infinite recursion)
+-- HELPER FUNCTIONS (SECURITY DEFINER - bypass RLS to avoid recursion)
 -- ═══════════════════════════════════════════════════════════════════════════
 
--- Function kiểm tra user có phải super_admin không
+-- Check if current user is super_admin
 CREATE OR REPLACE FUNCTION is_super_admin()
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (
@@ -120,7 +117,7 @@ RETURNS BOOLEAN AS $$
   );
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
--- Function lấy role của user trong 1 site
+-- Get user's role in a site
 CREATE OR REPLACE FUNCTION get_site_role(site_uuid UUID)
 RETURNS TEXT AS $$
   SELECT role FROM site_members 
@@ -128,7 +125,7 @@ RETURNS TEXT AS $$
   LIMIT 1;
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
--- Function kiểm tra user có phải member của site không
+-- Check if user is member of a site
 CREATE OR REPLACE FUNCTION is_site_member(site_uuid UUID)
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (
@@ -137,7 +134,7 @@ RETURNS BOOLEAN AS $$
   );
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
--- Function kiểm tra user có phải admin của site không
+-- Check if user is admin of a site
 CREATE OR REPLACE FUNCTION is_site_admin(site_uuid UUID)
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (
@@ -146,7 +143,7 @@ RETURNS BOOLEAN AS $$
   );
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
--- Function kiểm tra user có quyền edit (admin hoặc editor)
+-- Check if user can edit (admin or editor)
 CREATE OR REPLACE FUNCTION can_edit_site(site_uuid UUID)
 RETURNS BOOLEAN AS $$
   SELECT EXISTS (
@@ -156,111 +153,99 @@ RETURNS BOOLEAN AS $$
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- DROP OLD POLICIES (nếu có)
--- ═══════════════════════════════════════════════════════════════════════════
-DROP POLICY IF EXISTS "Allow all for authenticated users" ON sites;
-DROP POLICY IF EXISTS "Allow all for authenticated users" ON articles;
-DROP POLICY IF EXISTS "Allow all for authenticated users" ON media;
-
--- ═══════════════════════════════════════════════════════════════════════════
--- RLS POLICIES (dùng helper functions để tránh recursion)
+-- RLS POLICIES
 -- ═══════════════════════════════════════════════════════════════════════════
 
--- ─── Profiles ─────────────────────────────────────────────────────────────
--- Mọi authenticated user có thể xem profiles (cần cho join)
-CREATE POLICY "Authenticated can view profiles" ON profiles
-  FOR SELECT USING (auth.uid() IS NOT NULL);
+-- ─── PROFILES ─────────────────────────────────────────────────────────────
+-- User can view their own profile (required for helper functions to work)
+CREATE POLICY "profiles_select_own" ON profiles
+  FOR SELECT USING (id = auth.uid());
 
--- User chỉ update được profile của mình
-CREATE POLICY "Users can update own profile" ON profiles
+-- User can update their own profile
+CREATE POLICY "profiles_update_own" ON profiles
   FOR UPDATE USING (id = auth.uid());
 
--- ─── Sites ────────────────────────────────────────────────────────────────
--- Super admin: full access
-CREATE POLICY "Super admin full access sites" ON sites
+-- ─── SITES ────────────────────────────────────────────────────────────────
+-- Super admin: full access to all sites
+CREATE POLICY "sites_super_admin" ON sites
   FOR ALL USING (is_super_admin());
 
--- Members: chỉ xem sites mình là member
-CREATE POLICY "Members can view their sites" ON sites
+-- Members: can view sites they belong to
+CREATE POLICY "sites_member_select" ON sites
   FOR SELECT USING (is_site_member(id));
 
--- Site admin: có thể update site của mình
-CREATE POLICY "Site admin can update site" ON sites
+-- Site admin: can update their site
+CREATE POLICY "sites_admin_update" ON sites
   FOR UPDATE USING (is_site_admin(id));
 
--- ─── Articles ─────────────────────────────────────────────────────────────
+-- ─── ARTICLES ─────────────────────────────────────────────────────────────
 -- Super admin: full access
-CREATE POLICY "Super admin full access articles" ON articles
+CREATE POLICY "articles_super_admin" ON articles
   FOR ALL USING (is_super_admin());
 
--- Members: xem articles của sites mình là member
-CREATE POLICY "Members can view articles" ON articles
+-- Members: can view articles
+CREATE POLICY "articles_member_select" ON articles
   FOR SELECT USING (is_site_member(site_id));
 
--- Editors+: tạo articles
-CREATE POLICY "Editors can create articles" ON articles
+-- Editors+: can create articles
+CREATE POLICY "articles_editor_insert" ON articles
   FOR INSERT WITH CHECK (can_edit_site(site_id));
 
--- Editors+: update articles (chỉ của site mình)
-CREATE POLICY "Editors can update articles" ON articles
+-- Editors+: can update articles
+CREATE POLICY "articles_editor_update" ON articles
   FOR UPDATE USING (can_edit_site(site_id));
 
--- Admin: xóa articles
-CREATE POLICY "Admin can delete articles" ON articles
+-- Admin: can delete articles
+CREATE POLICY "articles_admin_delete" ON articles
   FOR DELETE USING (is_site_admin(site_id));
 
--- ─── Media ────────────────────────────────────────────────────────────────
+-- ─── MEDIA ────────────────────────────────────────────────────────────────
 -- Super admin: full access
-CREATE POLICY "Super admin full access media" ON media
+CREATE POLICY "media_super_admin" ON media
   FOR ALL USING (is_super_admin());
 
--- Members: xem media của sites mình là member
-CREATE POLICY "Members can view media" ON media
+-- Members: can view media
+CREATE POLICY "media_member_select" ON media
   FOR SELECT USING (is_site_member(site_id));
 
--- Editors+: upload media
-CREATE POLICY "Editors can upload media" ON media
+-- Editors+: can upload media
+CREATE POLICY "media_editor_insert" ON media
   FOR INSERT WITH CHECK (can_edit_site(site_id));
 
--- Admin: xóa media
-CREATE POLICY "Admin can delete media" ON media
+-- Admin: can delete media
+CREATE POLICY "media_admin_delete" ON media
   FOR DELETE USING (is_site_admin(site_id));
 
--- ─── Site Members ─────────────────────────────────────────────────────────
+-- ─── SITE MEMBERS ─────────────────────────────────────────────────────────
 -- Super admin: full access
-CREATE POLICY "Super admin full access site_members" ON site_members
+CREATE POLICY "site_members_super_admin" ON site_members
   FOR ALL USING (is_super_admin());
 
--- Members: xem members của site mình
-CREATE POLICY "Members can view site_members" ON site_members
+-- Members: can view members of their sites
+CREATE POLICY "site_members_select" ON site_members
   FOR SELECT USING (is_site_member(site_id));
 
--- Site admin: quản lý members (chỉ editors/viewers)
-CREATE POLICY "Site admin can insert members" ON site_members
-  FOR INSERT WITH CHECK (
-    is_site_admin(site_id) AND role IN ('editor', 'viewer')
-  );
+-- Site admin: can add editors/viewers
+CREATE POLICY "site_members_admin_insert" ON site_members
+  FOR INSERT WITH CHECK (is_site_admin(site_id) AND role IN ('editor', 'viewer'));
 
-CREATE POLICY "Site admin can delete members" ON site_members
-  FOR DELETE USING (
-    is_site_admin(site_id) AND role IN ('editor', 'viewer')
-  );
+-- Site admin: can remove editors/viewers
+CREATE POLICY "site_members_admin_delete" ON site_members
+  FOR DELETE USING (is_site_admin(site_id) AND role IN ('editor', 'viewer'));
 
--- ─── Invitations ──────────────────────────────────────────────────────────
+-- ─── INVITATIONS ──────────────────────────────────────────────────────────
 -- Super admin: full access
-CREATE POLICY "Super admin full access invitations" ON invitations
+CREATE POLICY "invitations_super_admin" ON invitations
   FOR ALL USING (is_super_admin());
 
--- Site admin: tạo invitations cho editors/viewers
-CREATE POLICY "Site admin can create invitations" ON invitations
-  FOR INSERT WITH CHECK (
-    is_site_admin(site_id) AND role IN ('editor', 'viewer')
-  );
+-- Site admin: can create invitations for editors/viewers
+CREATE POLICY "invitations_admin_insert" ON invitations
+  FOR INSERT WITH CHECK (is_site_admin(site_id) AND role IN ('editor', 'viewer'));
 
--- Site admin: xem invitations của site mình
-CREATE POLICY "Site admin can view invitations" ON invitations
+-- Site admin: can view invitations for their site
+CREATE POLICY "invitations_admin_select" ON invitations
   FOR SELECT USING (is_site_admin(site_id));
 
--- Ai cũng xem được invitation (để accept) - validation ở app
-CREATE POLICY "Anyone can view invitation by token" ON invitations
+-- Anyone can view invitation (needed for accepting)
+CREATE POLICY "invitations_public_select" ON invitations
   FOR SELECT USING (true);

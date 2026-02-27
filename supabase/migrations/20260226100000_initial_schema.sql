@@ -1,13 +1,16 @@
--- =============================================
+-- ═══════════════════════════════════════════════════════════════════════════
 -- Web Management Platform — Database Schema
 -- Migration 001: Initial Schema
--- Chạy file SQL này trong Supabase SQL Editor
--- =============================================
+-- ═══════════════════════════════════════════════════════════════════════════
 
--- BƯỚC 1: Enable UUID extension
+-- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- BƯỚC 2: Bảng sites
+-- ═══════════════════════════════════════════════════════════════════════════
+-- TABLES
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Sites table
 CREATE TABLE IF NOT EXISTS sites (
   id          UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   name        TEXT NOT NULL,
@@ -20,7 +23,7 @@ CREATE TABLE IF NOT EXISTS sites (
   updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
--- BƯỚC 3: Bảng articles
+-- Articles table
 CREATE TABLE IF NOT EXISTS articles (
   id           UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   site_id      UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
@@ -38,7 +41,7 @@ CREATE TABLE IF NOT EXISTS articles (
   UNIQUE(site_id, slug)
 );
 
--- BƯỚC 4: Bảng media
+-- Media table
 CREATE TABLE IF NOT EXISTS media (
   id         UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   site_id    UUID REFERENCES sites(id) ON DELETE CASCADE,
@@ -49,13 +52,17 @@ CREATE TABLE IF NOT EXISTS media (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- BƯỚC 5: Indexes
+-- ═══════════════════════════════════════════════════════════════════════════
+-- INDEXES
+-- ═══════════════════════════════════════════════════════════════════════════
 CREATE INDEX IF NOT EXISTS idx_articles_site_id ON articles(site_id);
 CREATE INDEX IF NOT EXISTS idx_articles_status  ON articles(status);
 CREATE INDEX IF NOT EXISTS idx_articles_slug    ON articles(site_id, slug);
 CREATE INDEX IF NOT EXISTS idx_media_site_id    ON media(site_id);
 
--- BƯỚC 6: Auto-update updated_at
+-- ═══════════════════════════════════════════════════════════════════════════
+-- TRIGGERS: Auto-update updated_at
+-- ═══════════════════════════════════════════════════════════════════════════
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
@@ -71,52 +78,47 @@ CREATE TRIGGER set_updated_at_articles
   BEFORE UPDATE ON articles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- BƯỚC 7: Row Level Security
+-- ═══════════════════════════════════════════════════════════════════════════
+-- ROW LEVEL SECURITY - Enable only (policies in next migration)
+-- ═══════════════════════════════════════════════════════════════════════════
 ALTER TABLE sites    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE articles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE media    ENABLE ROW LEVEL SECURITY;
 
--- Policy: Cho phép authenticated users truy cập toàn bộ (single-user app)
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT FROM pg_policies WHERE policyname = 'auth_all_sites') THEN
-    CREATE POLICY auth_all_sites ON sites FOR ALL TO authenticated USING (true) WITH CHECK (true);
-  END IF;
-  IF NOT EXISTS (SELECT FROM pg_policies WHERE policyname = 'auth_all_articles') THEN
-    CREATE POLICY auth_all_articles ON articles FOR ALL TO authenticated USING (true) WITH CHECK (true);
-  END IF;
-  IF NOT EXISTS (SELECT FROM pg_policies WHERE policyname = 'auth_all_media') THEN
-    CREATE POLICY auth_all_media ON media FOR ALL TO authenticated USING (true) WITH CHECK (true);
-  END IF;
-END $$;
+-- NOTE: RLS Policies sẽ được tạo trong migration user_management
+-- để đảm bảo helper functions tồn tại trước khi policies sử dụng chúng
 
--- BƯỚC 8: Storage bucket
--- Tạo bucket (nếu chưa có)
+-- ═══════════════════════════════════════════════════════════════════════════
+-- STORAGE BUCKET
+-- ═══════════════════════════════════════════════════════════════════════════
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('media-bucket', 'media-bucket', true)
 ON CONFLICT (id) DO NOTHING;
 
--- BƯỚC 9: Storage Policies
--- Public read — ai cũng có thể xem file (dùng cho public URL)
-CREATE POLICY "public_read_media"
-ON storage.objects FOR SELECT
-TO public
-USING (bucket_id = 'media-bucket');
-
--- Authenticated users được upload
-CREATE POLICY "auth_insert_media"
-ON storage.objects FOR INSERT
-TO authenticated
-WITH CHECK (bucket_id = 'media-bucket');
-
--- Authenticated users được update
-CREATE POLICY "auth_update_media"
-ON storage.objects FOR UPDATE
-TO authenticated
-USING (bucket_id = 'media-bucket');
-
--- Authenticated users được delete
-CREATE POLICY "auth_delete_media"
-ON storage.objects FOR DELETE
-TO authenticated
-USING (bucket_id = 'media-bucket');
+-- Storage Policies
+DO $$
+BEGIN
+  -- Public read
+  IF NOT EXISTS (SELECT FROM pg_policies WHERE policyname = 'public_read_media' AND tablename = 'objects') THEN
+    CREATE POLICY "public_read_media" ON storage.objects FOR SELECT TO public
+    USING (bucket_id = 'media-bucket');
+  END IF;
+  
+  -- Authenticated insert
+  IF NOT EXISTS (SELECT FROM pg_policies WHERE policyname = 'auth_insert_media' AND tablename = 'objects') THEN
+    CREATE POLICY "auth_insert_media" ON storage.objects FOR INSERT TO authenticated
+    WITH CHECK (bucket_id = 'media-bucket');
+  END IF;
+  
+  -- Authenticated update
+  IF NOT EXISTS (SELECT FROM pg_policies WHERE policyname = 'auth_update_media' AND tablename = 'objects') THEN
+    CREATE POLICY "auth_update_media" ON storage.objects FOR UPDATE TO authenticated
+    USING (bucket_id = 'media-bucket');
+  END IF;
+  
+  -- Authenticated delete
+  IF NOT EXISTS (SELECT FROM pg_policies WHERE policyname = 'auth_delete_media' AND tablename = 'objects') THEN
+    CREATE POLICY "auth_delete_media" ON storage.objects FOR DELETE TO authenticated
+    USING (bucket_id = 'media-bucket');
+  END IF;
+END $$;

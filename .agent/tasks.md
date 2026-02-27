@@ -138,36 +138,37 @@
 
 | Status | Task | Notes |
 |--------|------|-------|
-| ⏳ | Screen: Site Members (`/sites/[siteId]/members`) | |
-| ⏳ | Component: AddMemberModal | |
-| ⏳ | Server Actions: addSiteMember(), removeSiteMember(), updateMemberRole() | |
-| ⏳ | Update article/media actions: check permission | |
-| ⏳ | Middleware: redirect nếu không có quyền | |
+| ✅ | Screen: Site Members (`/sites/[siteId]/members`) | |
+| ✅ | Component: AddMemberModal, RemoveMemberButton | |
+| ✅ | Server Actions: inviteUserAction(), removeSiteMemberAction() | Reuse từ users.ts |
+| ✅ | Update article/media/sites actions: check permission | |
+| ✅ | Add Members link to site sidebar | |
 
 ### Sprint 10 — Site Client Management
 
 | Status | Task | Notes |
 |--------|------|-------|
-| ⏳ | Supabase: Enable Google OAuth provider | Dashboard settings |
-| ⏳ | Supabase: Configure redirect URLs cho các site con | |
-| ⏳ | Supabase: Email templates (Welcome, Verify, Reset) | |
-| ⏳ | Screen: Site Clients (`/sites/[siteId]/clients`) | Dashboard UI xem clients |
-| ⏳ | Component: ClientsTable với pagination, filter, search | |
-| ⏳ | Server Action: exportClientsCSV() | |
-| ⏳ | Docs: Hướng dẫn site con integrate Supabase Auth | |
+| ⏳ | Supabase: Enable Google OAuth provider | Manual - Dashboard settings |
+| ⏳ | Supabase: Configure redirect URLs cho các site con | Manual |
+| ⏳ | Supabase: Email templates (Welcome, Verify, Reset) | Manual |
+| ✅ | Migration: site_clients table | `20260227120000_site_clients.sql` |
+| ✅ | Screen: Site Clients (`/sites/[siteId]/clients`) | Dashboard UI xem clients |
+| ✅ | Component: ClientsTable với pagination, filter, search | |
+| ✅ | Server Action: exportClientsCSV() | |
+| ✅ | Docs: Hướng dẫn site con integrate Supabase Auth | `docs/site-auth-integration.md` |
 
 > **Note**: Site con tự handle UI login/register bằng Supabase Auth SDK.
-> Platform chỉ cần config Supabase và cung cấp dashboard quản lý clients. |
+> Platform chỉ cần config Supabase và cung cấp dashboard quản lý clients.
 
 ### Sprint 11 — Profile & Settings
 
 | Status | Task | Notes |
 |--------|------|-------|
-| ⏳ | Screen: User Profile (`/settings/profile`) | |
-| ⏳ | Component: AvatarUpload | |
-| ⏳ | Server Action: updateProfileAction() | |
-| ⏳ | Screen: Change Password (`/settings/security`) | |
-| ⏳ | Activity log: track user actions | |
+| ✅ | Screen: User Profile (`/settings/profile`) | |
+| ✅ | Component: AvatarUpload | |
+| ✅ | Server Action: updateProfileAction(), changePasswordAction() | |
+| ✅ | Screen: Change Password (`/settings/security`) | |
+| ⏳ | Activity log: track user actions | Backlog - Phase 4 |
 
 ---
 

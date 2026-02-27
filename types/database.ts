@@ -90,7 +90,7 @@ export interface ArticleWithSite extends Article {
 }
 
 export interface SiteMemberWithProfile extends SiteMember {
-  profiles: Pick<Profile, 'id' | 'email' | 'full_name' | 'avatar_url'>
+  profiles: Pick<Profile, 'id' | 'email' | 'full_name' | 'avatar_url' | 'role'> | null
 }
 
 export interface SiteMemberWithSite extends SiteMember {
@@ -100,4 +100,26 @@ export interface SiteMemberWithSite extends SiteMember {
 export interface InvitationWithSite extends Invitation {
   sites: Pick<Site, 'id' | 'name' | 'slug'> | null
   inviter?: Pick<Profile, 'id' | 'email' | 'full_name'>
+}
+
+// ─── Site Clients Types ───────────────────────────────────────────────────
+
+export type AuthProvider = 'email' | 'google' | 'facebook' | 'github' | 'apple'
+
+export interface SiteClient {
+  id: string
+  site_id: string
+  external_id: string | null
+  provider: AuthProvider
+  email: string
+  full_name: string | null
+  avatar_url: string | null
+  phone: string | null
+  is_active: boolean
+  is_verified: boolean
+  metadata: Json
+  last_login: string | null
+  login_count: number
+  created_at: string
+  updated_at: string
 }

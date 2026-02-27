@@ -2,9 +2,9 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { createArticleSchema, updateArticleSchema } from '@/lib/validations'
 import { slugify } from '@/lib/utils'
+import { canEditSite, isSiteAdmin } from '@/lib/permissions'
 
 export type ActionResult = {
   error?: string
@@ -21,6 +21,12 @@ export async function createArticleAction(
   tags: string[],
   status: 'draft' | 'published' | 'archived'
 ): Promise<ActionResult> {
+  // Permission check: must be editor or admin
+  const canEdit = await canEditSite(siteId)
+  if (!canEdit) {
+    return { error: 'Bạn không có quyền tạo bài viết cho site này' }
+  }
+
   const slug = slugify(title || 'untitled')
 
   const parsed = createArticleSchema.safeParse({
@@ -70,6 +76,12 @@ export async function updateArticleAction(
   status: 'draft' | 'published' | 'archived',
   existingPublishedAt: string | null
 ): Promise<ActionResult> {
+  // Permission check: must be editor or admin
+  const canEdit = await canEditSite(siteId)
+  if (!canEdit) {
+    return { error: 'Bạn không có quyền chỉnh sửa bài viết này' }
+  }
+
   const slug = slugify(title || 'untitled')
 
   const parsed = updateArticleSchema.safeParse({
@@ -116,6 +128,12 @@ export async function updateArticleAction(
 }
 
 export async function deleteArticleAction(articleId: string, siteId: string): Promise<ActionResult> {
+  // Permission check: only admin can delete
+  const isAdmin = await isSiteAdmin(siteId)
+  if (!isAdmin) {
+    return { error: 'Chỉ Admin mới có quyền xóa bài viết' }
+  }
+
   const supabase = await createClient()
   const { error } = await supabase.from('articles').delete().eq('id', articleId)
 
