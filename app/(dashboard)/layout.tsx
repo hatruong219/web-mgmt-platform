@@ -23,15 +23,10 @@ export default async function DashboardLayout({
   const sites = sitesResult.data
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div className="dashboard-layout">
       <Sidebar user={user} sites={(sites as Site[]) ?? []} />
-      <main style={{
-        flex: 1,
-        marginLeft: 'var(--sidebar-width, 260px)',
-        minHeight: '100vh',
-        overflowY: 'auto' as const,
-      }}>
-        <div style={{ padding: '2rem' }}>
+      <main className="dashboard-main">
+        <div className="dashboard-content">
           {children}
         </div>
       </main>

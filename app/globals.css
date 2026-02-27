@@ -1,8 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════
+   THEME VARIABLES — Dark mode (default)
+   ═══════════════════════════════════════════════════════════════ */
 :root {
-  /* Colors */
+  /* Colors - Dark */
   --background: 222 47% 5%;
   --foreground: 210 40% 98%;
   --card: 222 47% 8%;
@@ -30,6 +33,33 @@
   /* Gradients */
   --gradient-primary: linear-gradient(135deg, hsl(262 83% 65%), hsl(220 83% 65%));
   --gradient-card: linear-gradient(145deg, hsl(222 47% 9%), hsl(222 47% 7%));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME VARIABLES — Light mode
+   ═══════════════════════════════════════════════════════════════ */
+.light {
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 98%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 262 83% 58%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 220 14% 96%;
+  --muted-foreground: 220 9% 46%;
+  --accent: 262 83% 58%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 13% 91%;
+  --input: 220 13% 91%;
+  --ring: 262 83% 58%;
+
+  --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(220 14% 98%));
 }
 
 * {
@@ -511,7 +541,7 @@ kbd {
 
 .dashboard-content {
   padding: 2rem;
-  max-width: 1280px;
+  width: 100%;
 }
 
 @media (max-width: 768px) {
@@ -610,4 +640,136 @@ kbd {
   border: none;
   border-top: 1px solid hsl(var(--border));
   margin: 2rem 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME TOGGLE BUTTON
+   ═══════════════════════════════════════════════════════════════ */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.theme-toggle:hover {
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+
+.theme-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE — Sidebar Drawer
+   ═══════════════════════════════════════════════════════════════ */
+.mobile-menu-btn {
+  display: none;
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 60;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.625rem;
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mobile-menu-btn:hover {
+  background: hsl(var(--secondary));
+}
+
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 40;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar-overlay.open {
+  opacity: 1;
+}
+
+.sidebar-close-btn {
+  display: none;
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sidebar-close-btn:hover {
+  background: hsl(var(--secondary));
+  color: hsl(var(--foreground));
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: flex;
+  }
+
+  .sidebar-close-btn {
+    display: flex;
+  }
+
+  .sidebar-overlay {
+    display: block;
+  }
+
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .dashboard-main {
+    margin-left: 0 !important;
+  }
+
+  .dashboard-content {
+    padding: 1rem;
+    padding-top: 4rem;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR FOOTER — Updated for theme toggle
+   ═══════════════════════════════════════════════════════════════ */
+.sidebar-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }

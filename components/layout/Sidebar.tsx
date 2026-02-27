@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { logoutAction } from '@/app/actions/auth'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import type { User } from '@supabase/supabase-js'
 import type { Site } from '@/types/database'
 
@@ -19,6 +20,19 @@ const SITE_COLORS = [
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 const Icons = {
+  menu: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  ),
+  close: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  ),
   grid: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
@@ -76,8 +90,8 @@ interface SidebarProps {
 
 export default function Sidebar({ user, sites = [] }: SidebarProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const [showSiteSwitcher, setShowSiteSwitcher] = useState(false)
+  const [isMobileOpen, setIsMobileOpen] = useState(false)
 
   // ── Detect if we are inside a site context ────────────────────────────────
   const siteMatch = pathname.match(/^\/sites\/([^/]+)/)
@@ -110,38 +124,81 @@ export default function Sidebar({ user, sites = [] }: SidebarProps) {
     return () => document.removeEventListener('click', handler)
   }, [showSiteSwitcher])
 
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setIsMobileOpen(false)
+  }, [pathname])
+
+  // Prevent body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (isMobileOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isMobileOpen])
+
   return (
-    <aside
-      className={`sidebar glass ${activeSite ? 'site-context' : ''}`}
-      style={{
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        width: 260,
-        minWidth: 260,
-        maxWidth: 260,
-        display: 'flex',
-        flexDirection: 'column',
-        zIndex: 50,
-        ...(activeColor ? {
-          '--site-accent': activeColor.accent,
-          '--site-hue': activeColor.hue,
-        } as React.CSSProperties : {}),
-      }}
-    >
-      {/* ── Logo ──────────────────────────────────────────────── */}
-      <div className="sidebar-header">
-        <Link href="/" className="sidebar-logo">
-          <div className="sidebar-logo-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
-              <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
-            </svg>
-          </div>
-          <span className="sidebar-logo-text gradient-text">Web Manager</span>
-        </Link>
-      </div>
+    <>
+      {/* Mobile menu button */}
+      <button
+        className="mobile-menu-btn"
+        onClick={() => setIsMobileOpen(true)}
+        aria-label="Open menu"
+      >
+        {Icons.menu}
+      </button>
+
+      {/* Mobile overlay */}
+      <div
+        className={`sidebar-overlay ${isMobileOpen ? 'open' : ''}`}
+        onClick={() => setIsMobileOpen(false)}
+        style={{ display: isMobileOpen ? 'block' : undefined }}
+      />
+
+      <aside
+        className={`sidebar glass ${activeSite ? 'site-context' : ''} ${isMobileOpen ? 'open' : ''}`}
+        style={{
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 260,
+          minWidth: 260,
+          maxWidth: 260,
+          display: 'flex',
+          flexDirection: 'column',
+          zIndex: 50,
+          ...(activeColor ? {
+            '--site-accent': activeColor.accent,
+            '--site-hue': activeColor.hue,
+          } as React.CSSProperties : {}),
+        }}
+      >
+        {/* Mobile close button */}
+        <button
+          className="sidebar-close-btn"
+          onClick={() => setIsMobileOpen(false)}
+          aria-label="Close menu"
+        >
+          {Icons.close}
+        </button>
+
+        {/* ── Logo ──────────────────────────────────────────────── */}
+        <div className="sidebar-header">
+          <Link href="/" className="sidebar-logo">
+            <div className="sidebar-logo-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+              </svg>
+            </div>
+            <span className="sidebar-logo-text gradient-text">Web Manager</span>
+          </Link>
+        </div>
 
       {/* ── GLOBAL MODE: no active site ───────────────────────── */}
       {!activeSite && (
@@ -257,23 +314,27 @@ export default function Sidebar({ user, sites = [] }: SidebarProps) {
       {/* ── Spacer ────────────────────────────────────────────── */}
       <div className="sidebar-spacer" />
 
-      {/* ── User footer ───────────────────────────────────────── */}
-      <div className="sidebar-footer">
-        <div className="sidebar-user">
-          <div className="sidebar-avatar">{userInitials}</div>
-          <div className="sidebar-user-info">
-            <p className="sidebar-user-email">{user.email}</p>
+        {/* ── User footer ───────────────────────────────────────── */}
+        <div className="sidebar-footer">
+          <div className="sidebar-user">
+            <div className="sidebar-avatar">{userInitials}</div>
+            <div className="sidebar-user-info">
+              <p className="sidebar-user-email">{user.email}</p>
+            </div>
+          </div>
+          <div className="sidebar-footer-actions">
+            <ThemeToggle />
+            <button
+              id="sidebar-logout-btn"
+              onClick={handleSignOut}
+              className="sidebar-logout"
+              title="Đăng xuất"
+            >
+              {Icons.logout}
+            </button>
           </div>
         </div>
-        <button
-          id="sidebar-logout-btn"
-          onClick={handleSignOut}
-          className="sidebar-logout"
-          title="Đăng xuất"
-        >
-          {Icons.logout}
-        </button>
-      </div>
-    </aside>
+      </aside>
+    </>
   )
 }
