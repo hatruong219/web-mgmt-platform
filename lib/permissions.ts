@@ -196,12 +196,16 @@ export async function getUserSites(): Promise<SiteMembership[]> {
     `)
     .eq('user_id', user.id)
 
-  return (memberships || []).map(m => ({
-    site_id: m.site_id,
-    role: m.role as SiteRole,
-    site_name: (m.sites as { name: string } | null)?.name,
-    site_slug: (m.sites as { slug: string } | null)?.slug,
-  }))
+  return (memberships || []).map(m => {
+    const site = Array.isArray(m.sites) ? m.sites[0] : m.sites
+
+    return {
+      site_id: m.site_id,
+      role: m.role as SiteRole,
+      site_name: site?.name,
+      site_slug: site?.slug,
+    }
+  })
 }
 
 /**
