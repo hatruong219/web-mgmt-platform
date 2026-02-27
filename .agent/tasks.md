@@ -21,7 +21,7 @@
 | ✅ | Chạy SQL migration trên Supabase (sites, articles, media tables) | Done |
 | ⏳ | Init shadcn/ui: `npx shadcn@latest init` | Optional — hiện dùng custom CSS |
 | ✅ | Setup Supabase Auth — Email provider | Done |
-| ⏳ | Generate TypeScript types: `npx supabase gen types typescript` | Optional — đã có manual types |
+| ✅ | Generate TypeScript types: `npx supabase gen types typescript` | Done — `types/database.generated.ts` |
 
 ---
 
@@ -89,8 +89,8 @@
 | ✅ | Error boundaries | `error.tsx` cho dashboard + site routes |
 | ✅ | Empty states (no articles, no media, no sites) | Done |
 | ✅ | Not-found page cho site | `not-found.tsx` |
-| ⏳ | Dark mode toggle | next-themes |
-| ⏳ | Responsive layout (mobile sidebar → drawer) | Partial responsive CSS |
+| ✅ | Dark mode toggle | next-themes + ThemeProvider + ThemeToggle |
+| ✅ | Responsive layout (mobile sidebar → drawer) | Mobile hamburger menu + drawer sidebar |
 
 ---
 
@@ -98,12 +98,12 @@
 
 | Status | Task | Notes |
 |--------|------|-------|
-| ⏳ | Push code lên GitHub | |
-| ⏳ | Connect Vercel với GitHub repo | |
-| ⏳ | Add Environment Variables trên Vercel | |
-| ⏳ | Test production build | `npm run build` locally first |
-| ⏳ | Verify Auth flow on production | |
-| ⏳ | Verify Supabase Storage on production | |
+| ✅ | Push code lên GitHub | Done |
+| ✅ | Connect Vercel với GitHub repo | Done |
+| ✅ | Add Environment Variables trên Vercel | Done |
+| ✅ | Test production build | Done |
+| ✅ | Verify Auth flow on production | Done |
+| ✅ | Verify Supabase Storage on production | Done |
 
 ---
 
