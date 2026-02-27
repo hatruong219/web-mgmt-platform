@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { STORAGE_BUCKET } from '@/lib/utils'
+import { isSiteAdmin } from '@/lib/permissions'
 
 export type ActionResult = {
   error?: string
@@ -10,6 +11,12 @@ export type ActionResult = {
 }
 
 export async function deleteMediaAction(mediaId: string, mediaUrl: string, siteId: string): Promise<ActionResult> {
+  // Permission check: only admin can delete
+  const isAdmin = await isSiteAdmin(siteId)
+  if (!isAdmin) {
+    return { error: 'Chỉ Admin mới có quyền xóa media' }
+  }
+
   const supabase = await createClient()
 
   // Hướng B: Chỉ xóa record trong DB, GIỮ file trong Storage bucket
@@ -30,6 +37,12 @@ export async function deleteMediaAction(mediaId: string, mediaUrl: string, siteI
  * Dùng khi chắc chắn muốn xóa hẳn (ví dụ: cleanup orphaned files)
  */
 export async function hardDeleteMediaAction(mediaId: string, mediaUrl: string, siteId: string): Promise<ActionResult> {
+  // Permission check: only admin can delete
+  const isAdmin = await isSiteAdmin(siteId)
+  if (!isAdmin) {
+    return { error: 'Chỉ Admin mới có quyền xóa media' }
+  }
+
   const supabase = await createClient()
 
   // Xóa file khỏi Storage bucket

@@ -4,6 +4,8 @@ import Link from 'next/link'
 import type { Site } from '@/types/database'
 import CreateSiteModal from '@/components/sites/CreateSiteModal'
 import { formatDate } from '@/lib/utils'
+import { getCurrentUser, getUserSites } from '@/lib/permissions'
+import { redirect } from 'next/navigation'
 import styles from './page.module.css'
 
 export const metadata: Metadata = {
@@ -11,6 +13,42 @@ export const metadata: Metadata = {
 }
 
 export default async function DashboardPage() {
+  const currentUser = await getCurrentUser()
+
+  if (!currentUser) {
+    redirect('/login')
+  }
+
+  // Only Super Admin is allowed to see the global dashboard.
+  // Other roles are redirected to their first accessible site (if any),
+  // or shown a friendly "no access" message.
+  if (currentUser.role !== 'super_admin') {
+    const sitesForUser = await getUserSites()
+
+    if (sitesForUser.length > 0) {
+      const first = sitesForUser[0]
+      // Editor/viewer: default landing is the Articles list
+      if (first.role !== 'admin') {
+        redirect(`/sites/${first.site_id}/articles`)
+      }
+
+      redirect(`/sites/${first.site_id}`)
+    }
+
+    return (
+      <div className={`${styles.page} animate-fade-in`}>
+        <div className={styles.pageHeader}>
+          <div>
+            <h1 className={styles.pageTitle}>Không có quyền truy cập Dashboard</h1>
+            <p className={styles.pageSubtitle}>
+              Tài khoản của bạn chưa được gán vào bất kỳ website nào. Vui lòng liên hệ Super Admin để được cấp quyền.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const supabase = await createClient()
 
   // Chạy song song

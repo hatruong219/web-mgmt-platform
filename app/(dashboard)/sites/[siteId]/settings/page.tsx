@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import SiteSettingsForm from '@/components/sites/SiteSettingsForm'
+import { getSiteRole } from '@/lib/permissions'
 import s from '../../../shared.module.css'
 
 interface Props {
@@ -13,6 +14,14 @@ export const metadata: Metadata = { title: 'Cài đặt' }
 
 export default async function SettingsPage({ params }: Props) {
     const { siteId } = await params
+    const siteRole = await getSiteRole(siteId)
+    if (!siteRole) notFound()
+
+    // Editor/viewer cannot access Settings
+    if (siteRole !== 'admin') {
+        redirect(`/sites/${siteId}/articles?forbidden=settings`)
+    }
+
     const supabase = await createClient()
 
     const { data: site } = await supabase.from('sites').select('*').eq('id', siteId).single()

@@ -1,0 +1,39 @@
+.page {
+  width: 100%;
+  max-width: 600px;
+}
+
+.header {
+  margin-bottom: 2rem;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: hsl(var(--foreground));
+}
+
+.subtitle {
+  color: hsl(var(--muted-foreground));
+  margin-top: 0.25rem;
+}
+
+.card {
+  padding: 1.5rem;
+  border-radius: 1rem;
+}
+
+.roleSection {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+
+.roleLabel {
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+}

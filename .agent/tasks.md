@@ -107,11 +107,108 @@
 
 ---
 
-## Backlog (Phase 2+)
+---
 
-- [ ] Public REST API (`/api/v1/...`)
-- [ ] Analytics: track page views per site
-- [ ] SEO metadata editor (Open Graph preview)
-- [ ] Article series / categories
-- [ ] Scheduled publishing
-- [ ] Newsletter subscriber management
+## Phase 2 — User Management & Multi-tenant
+
+### Sprint 7 — Database & Auth Foundation
+
+| Status | Task | Notes |
+|--------|------|-------|
+| ✅ | Migration SQL: profiles, site_members, invitations | `supabase/migrations/20260227_001_user_management.sql` |
+| ✅ | Trigger tự động tạo profile khi signup | Included in migration |
+| ✅ | Cập nhật RLS policies cho multi-tenant | Policies cho profiles, site_members, invitations, sites, articles, media |
+| ✅ | Helper functions: getUserRole(), canAccessSite() | `lib/permissions.ts` |
+| ✅ | Update TypeScript types | `types/database.ts` — Profile, SiteMember, Invitation |
+
+> **Action Required**: Chạy migration SQL trên Supabase Dashboard
+
+### Sprint 8 — Dashboard User Management
+
+| Status | Task | Notes |
+|--------|------|-------|
+| ✅ | Screen: Users list (`/users`) | Super Admin only |
+| ✅ | Component: InviteUserModal | Email + Role + Sites |
+| ✅ | Server Action: inviteUserAction() | Gửi email invite |
+| ✅ | Screen: Accept invitation (`/invite/[token]`) | |
+| ✅ | Component: UserRoleBadge, UserAvatar | |
+| ✅ | Update Sidebar: hiển thị menu theo role | |
+
+### Sprint 9 — Site Member Management
+
+| Status | Task | Notes |
+|--------|------|-------|
+| ✅ | Screen: Site Members (`/sites/[siteId]/members`) | |
+| ✅ | Component: AddMemberModal, RemoveMemberButton | |
+| ✅ | Server Actions: inviteUserAction(), removeSiteMemberAction() | Reuse từ users.ts |
+| ✅ | Update article/media/sites actions: check permission | |
+| ✅ | Add Members link to site sidebar | |
+
+### Sprint 10 — Site Client Management
+
+| Status | Task | Notes |
+|--------|------|-------|
+| ⏳ | Supabase: Enable Google OAuth provider | Manual - Dashboard settings |
+| ⏳ | Supabase: Configure redirect URLs cho các site con | Manual |
+| ⏳ | Supabase: Email templates (Welcome, Verify, Reset) | Manual |
+| ✅ | Migration: site_clients table | `20260227120000_site_clients.sql` |
+| ✅ | Screen: Site Clients (`/sites/[siteId]/clients`) | Dashboard UI xem clients |
+| ✅ | Component: ClientsTable với pagination, filter, search | |
+| ✅ | Server Action: exportClientsCSV() | |
+| ✅ | Docs: Hướng dẫn site con integrate Supabase Auth | `docs/site-auth-integration.md` |
+
+> **Note**: Site con tự handle UI login/register bằng Supabase Auth SDK.
+> Platform chỉ cần config Supabase và cung cấp dashboard quản lý clients.
+
+### Sprint 11 — Profile & Settings
+
+| Status | Task | Notes |
+|--------|------|-------|
+| ✅ | Screen: User Profile (`/settings/profile`) | |
+| ✅ | Component: AvatarUpload | |
+| ✅ | Server Action: updateProfileAction(), changePasswordAction() | |
+| ✅ | Screen: Change Password (`/settings/security`) | |
+| ⏳ | Activity log: track user actions | Backlog - Phase 4 |
+
+---
+
+## Phase 3 — Public API & Site Integration
+
+### Sprint 12 — Content API
+
+| Status | Task | Notes |
+|--------|------|-------|
+| ⏳ | Route Handler: GET `/api/v1/sites/:slug` | Site info |
+| ⏳ | Route Handler: GET `/api/v1/sites/:slug/articles` | Published articles |
+| ⏳ | Route Handler: GET `/api/v1/sites/:slug/articles/:slug` | Article detail |
+| ⏳ | API Key authentication | Optional |
+| ⏳ | Rate limiting | |
+| ⏳ | Caching với revalidate | |
+
+### Sprint 13 — SDK & Documentation
+
+| Status | Task | Notes |
+|--------|------|-------|
+| ⏳ | NPM package: @web-mgmt/client-sdk | |
+| ⏳ | API documentation (OpenAPI/Swagger) | |
+| ⏳ | Example: Next.js blog consuming API | |
+| ⏳ | Example: React app với client auth | |
+| ⏳ | Postman collection | |
+
+---
+
+## Phase 4 — Analytics & Advanced Features (Backlog)
+
+| Status | Task | Notes |
+|--------|------|-------|
+| ⏳ | Analytics: page_views, analytics_daily tables | |
+| ⏳ | Analytics dashboard UI | |
+| ⏳ | Comments system | Moderated comments |
+| ⏳ | Newsletter: send emails to subscribers | |
+| ⏳ | Scheduled publishing | |
+| ⏳ | Article series / categories | |
+| ⏳ | SEO metadata editor (Open Graph preview) | |
+| ⏳ | Content versioning | Track revisions |
+| ⏳ | Multi-language support | |
+| ⏳ | Custom domains | CNAME setup |
+| ⏳ | Webhooks | Notify external services |
