@@ -1,12 +1,22 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+
+// VARCHAR(5) safe — map 'jlpt-n5' → 'N5', 'jlpt-n4' → 'N4', etc.
+function sanitizeJlpt(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const s = raw.trim().toUpperCase()
+  // Handle patterns like 'JLPT-N5', 'JLPT N5', 'N5'
+  const match = s.match(/N[1-5]/)
+  return match ? match[0] : s.slice(0, 5)
+}
 
 // ─── VOCABULARY WORDS ─────────────────────────────────────────────────────────
 
+
 export async function createVocabWord(formData: FormData) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const siteId = formData.get('site_id') as string
   const word = formData.get('word') as string
   const slugBase = word.toLowerCase().replace(/[^a-z0-9ぁ-ん一-龠ァ-ヴー]/g, '-').slice(0, 50)
@@ -31,7 +41,7 @@ export async function createVocabWord(formData: FormData) {
 }
 
 export async function updateVocabWord(id: string, siteId: string, formData: FormData) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { error } = await supabase.from('vocabulary').update({
     deck_id:       formData.get('deck_id') as string,
     language_code: (formData.get('language_code') as string) || 'ja',
@@ -51,7 +61,7 @@ export async function updateVocabWord(id: string, siteId: string, formData: Form
 }
 
 export async function deleteVocabWord(id: string, siteId: string) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { error } = await supabase.from('vocabulary').delete().eq('id', id).eq('site_id', siteId)
   if (error) return { error: error.message }
   revalidatePath(`/sites/${siteId}/vocabulary`)
@@ -59,7 +69,7 @@ export async function deleteVocabWord(id: string, siteId: string) {
 }
 
 export async function toggleVocabActive(id: string, siteId: string, isActive: boolean) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { error } = await supabase.from('vocabulary').update({ is_active: isActive }).eq('id', id).eq('site_id', siteId)
   if (error) return { error: error.message }
   revalidatePath(`/sites/${siteId}/vocabulary`)
@@ -71,7 +81,7 @@ export async function bulkImportVocab(siteId: string, deckId: string, rows: Arra
   meaning_vi: string; meaning_en?: string
   part_of_speech?: string; jlpt_level?: string; tags?: string
 }>) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const data = rows.map((r, i) => ({
     site_id:       siteId,
     deck_id:       deckId,
@@ -82,7 +92,7 @@ export async function bulkImportVocab(siteId: string, deckId: string, rows: Arra
     meaning_vi:    r.meaning_vi,
     meaning_en:    r.meaning_en || null,
     part_of_speech:r.part_of_speech || null,
-    jlpt_level:    r.jlpt_level || null,
+    jlpt_level:    sanitizeJlpt(r.jlpt_level),
     tags:          r.tags?.split(',').map(t => t.trim()).filter(Boolean) || [],
     order_index:   i,
     is_active:     true,
@@ -96,7 +106,7 @@ export async function bulkImportVocab(siteId: string, deckId: string, rows: Arra
 // ─── DECKS ────────────────────────────────────────────────────────────────────
 
 export async function createDeck(formData: FormData) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const siteId = formData.get('site_id') as string
   const name = formData.get('name') as string
   const slug = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 80)
@@ -117,7 +127,7 @@ export async function createDeck(formData: FormData) {
 }
 
 export async function updateDeck(id: string, siteId: string, formData: FormData) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { error } = await supabase.from('decks').update({
     name:          formData.get('name') as string,
     description:   (formData.get('description') as string) || null,
@@ -132,7 +142,7 @@ export async function updateDeck(id: string, siteId: string, formData: FormData)
 }
 
 export async function deleteDeck(id: string, siteId: string) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { error } = await supabase.from('decks').delete().eq('id', id).eq('site_id', siteId)
   if (error) return { error: error.message }
   revalidatePath(`/sites/${siteId}/decks`)
