@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import { isSuperAdmin, canAccessSite, isSiteAdmin, getSiteRole } from '@/lib/permissions'
+import { requireSiteModule } from '@/lib/modules/guard'
 import type { Metadata } from 'next'
 import type { SiteMemberWithProfile, InvitationWithSite } from '@/types/database'
 import { UserAvatar } from '@/components/users/UserAvatar'
@@ -30,6 +31,9 @@ export default async function SiteMembersPage({ params }: PageProps) {
     redirect(`/sites/${siteId}/articles?forbidden=members`)
   }
 
+  // Module guard — 404 nếu module 'members' chưa bật cho site này
+  await requireSiteModule(siteId, 'members').catch(() => notFound())
+
   const supabase = await createClient()
 
   // Check access
@@ -53,7 +57,7 @@ export default async function SiteMembersPage({ params }: PageProps) {
   const superAdmin = await isSuperAdmin()
   const siteAdmin = await isSiteAdmin(siteId)
   const canManage = superAdmin || siteAdmin
-  
+
   // Fetch members and pending invitations
   const [membersResult, invitationsResult] = await Promise.all([
     supabase
@@ -94,8 +98,8 @@ export default async function SiteMembersPage({ params }: PageProps) {
           </p>
         </div>
         {canManage && (
-          <AddMemberModal 
-            siteId={siteId} 
+          <AddMemberModal
+            siteId={siteId}
             siteName={site.name}
             isSuperAdmin={superAdmin}
           />
@@ -159,7 +163,7 @@ export default async function SiteMembersPage({ params }: PageProps) {
             {members.map((member) => {
               const profile = member.profiles
               const canRemove = canManage && (
-                superAdmin || 
+                superAdmin ||
                 (siteAdmin && member.role !== 'admin')
               )
 

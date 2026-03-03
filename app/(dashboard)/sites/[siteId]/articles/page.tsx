@@ -7,6 +7,7 @@ import { formatDate } from '@/lib/utils'
 import ArticleFilters from '@/components/articles/ArticleFilters'
 import DeleteArticleButton from '@/components/articles/DeleteArticleButton'
 import { canAccessSite, getSiteRole } from '@/lib/permissions'
+import { requireSiteModule } from '@/lib/modules/guard'
 import s from '../../../shared.module.css'
 
 interface Props {
@@ -23,6 +24,9 @@ export default async function ArticlesPage({ params, searchParams }: Props) {
 
     const hasAccess = await canAccessSite(siteId)
     if (!hasAccess || !siteRole) notFound()
+
+    // Module guard — 404 nếu module 'articles' chưa bật cho site này
+    await requireSiteModule(siteId, 'articles').catch(() => notFound())
 
     const supabase = await createClient()
 

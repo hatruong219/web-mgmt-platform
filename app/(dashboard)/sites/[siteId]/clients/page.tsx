@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import { canAccessSite, isSiteAdmin, getSiteRole } from '@/lib/permissions'
+import { requireSiteModule } from '@/lib/modules/guard'
 import type { Metadata } from 'next'
 import type { SiteClient } from '@/types/database'
 import { ClientsTable } from '@/components/clients/ClientsTable'
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 
 interface PageProps {
   params: Promise<{ siteId: string }>
-  searchParams: Promise<{ 
+  searchParams: Promise<{
     page?: string
     search?: string
     provider?: string
@@ -40,6 +41,9 @@ export default async function SiteClientsPage({ params, searchParams }: PageProp
   if (!hasAccess) {
     notFound()
   }
+
+  // Module guard — 404 nếu module 'clients' chưa bật cho site này
+  await requireSiteModule(siteId, 'clients').catch(() => notFound())
 
   const supabase = await createClient()
 
