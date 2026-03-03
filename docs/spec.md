@@ -1,8 +1,10 @@
 # 📋 Product Specification — Web Management Platform
 
-> **Version**: 1.0.0  
-> **Status**: Phase 1 In Progress  
-> **Last Updated**: 2026-02-26
+> **Version**: 1.2.0  
+> **Status**: Phase 2 Planning  
+> **Last Updated**: 2026-03-03  
+> 
+> 📁 Feature specs: [`docs/features/`](./features/)
 
 ---
 
@@ -71,6 +73,64 @@ Managing multiple personal websites (blog, portfolio, etc.) is fragmented — ea
 - Update site name, slug, domain, description
 - View site metadata JSON (read-only display)
 - Danger zone: Delete site (with typed confirmation)
+
+---
+
+### Phase 2 — Dynamic Module System *(Planned — prerequisite)*
+
+#### F-11: Dynamic Site Modules
+> 📄 Chi tiết: [`docs/features/F-11-dynamic-site-modules.md`](./features/F-11-dynamic-site-modules.md)
+
+- **Module Registry** (`modules` table): danh sách tất cả module available trên platform
+- **Per-site config** (`site_modules` table): từng site bật/tắt/sắp xếp module của mình
+- **Settings > Modules tab**: UI để toggle, drag-reorder module trong sidebar
+- **Dynamic Sidebar**: render nav items theo `site_modules` thay vì hardcode
+- **Module Guard** (`requireSiteModule()`): mỗi route tự bảo vệ, 404 nếu module chưa bật
+
+**Module categories:**
+
+| Module | Category | Default sites |
+|---|---|---|
+| `settings` | system | Tất cả |
+| `articles` | content | portfolio, blog |
+| `media` | content | portfolio, blog |
+| `members` | system | Tất cả |
+| `clients` | system | Tất cả |
+| `vocabulary` | learning | language-learning |
+| `decks` | learning | language-learning |
+| `vocabulary-import` | learning | language-learning |
+| `lessons` | learning | language-learning |
+| `user-progress` | learning | language-learning |
+
+---
+
+### Phase 2.5 — Language Learning Extension
+
+#### F-10: Vocabulary CSV Import *(module: vocabulary-import)*
+> 📄 Chi tiết: [`docs/features/F-10-vocabulary-csv-import.md`](./features/F-10-vocabulary-csv-import.md)
+
+- **Tab "Import"** trong site navigation — chỉ hiển thị với site ID = `NEXT_PUBLIC_LANGUAGE_LEARNING_SITE_ID`
+- Truy cập `/sites/[other-id]/import` → 404
+- **Dropdown** chọn deck đích (lấy từ Supabase bảng `decks`)
+- **Upload CSV** (drag & drop hoặc click), chỉ nhận `.csv` UTF-8, max 5MB
+- **Preview** 5 dòng đầu trước khi xác nhận import
+- **Import** → upsert vào bảng `vocabulary` (onConflict: `deck_id + word`)
+- **Result summary**: hiển thị số thành công / skip / lỗi
+
+**CSV format:**
+```
+Kanji | Hiragana | Hán Việt | Nghĩa | Chưa thuộc | Từ loại
+```
+
+**Field mapping:**
+| CSV | DB field |
+|---|---|
+| Kanji | `word` |
+| Hiragana | `reading` |
+| Hán Việt | `metadata.han_viet` |
+| Nghĩa | `meaning_vi` |
+| Chưa thuộc | `metadata.needs_review` |
+| Từ loại | `part_of_speech` |
 
 ---
 
@@ -202,3 +262,22 @@ GET /api/v1/sites/:slug/media                  → List media files
 ### AC-05: Settings
 - [ ] User can update site name and domain
 - [ ] Delete site with confirmed input deletes all related data
+
+### AC-11: Dynamic Site Modules
+- [ ] `modules` table seeded with all built-in modules
+- [ ] `site_modules` seeded with correct defaults per site
+- [ ] Sidebar renders only enabled modules in correct order
+- [ ] Settings > Modules: toggle enables/disables module, sidebar updates
+- [ ] System modules cannot be toggled off
+- [ ] Drag-reorder saves new `order_index` to DB
+- [ ] Accessing disabled module route returns 404
+
+### AC-10: Vocabulary CSV Import
+- [ ] Tab "Import" visible only when `vocabulary-import` module is enabled for site
+- [ ] Direct URL access when module not enabled returns 404 via `requireSiteModule()`
+- [ ] Deck dropdown populates from Supabase `decks` table
+- [ ] Valid CSV shows 5-row preview before import
+- [ ] Import inserts vocabulary rows with correct `site_id` and `deck_id`
+- [ ] Duplicate word in same deck → UPSERT (no duplicate rows)
+- [ ] Result summary shows success / skipped / error counts
+- [ ] Non-CSV file or missing required headers shows validation error

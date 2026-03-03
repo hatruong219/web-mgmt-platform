@@ -37,7 +37,39 @@ export default async function SettingsPage({ params }: Props) {
                 <span>Cài đặt</span>
             </div>
 
+            {/* Tab navigation */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1px solid hsl(var(--border) / 0.4)', paddingBottom: '0' }}>
+                <Link
+                    href={`/sites/${siteId}/settings`}
+                    style={{
+                        padding: '0.5rem 1rem',
+                        fontSize: '0.875rem',
+                        fontWeight: 600,
+                        color: 'hsl(var(--primary))',
+                        borderBottom: '2px solid hsl(var(--primary))',
+                        textDecoration: 'none',
+                        marginBottom: '-1px',
+                    }}
+                >
+                    Chung
+                </Link>
+                <Link
+                    href={`/sites/${siteId}/settings/modules`}
+                    style={{
+                        padding: '0.5rem 1rem',
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                        color: 'hsl(var(--muted-foreground))',
+                        textDecoration: 'none',
+                        transition: 'color 0.15s',
+                    }}
+                >
+                    Modules
+                </Link>
+            </div>
+
             <SiteSettingsForm site={site} />
         </div>
     )
 }
+

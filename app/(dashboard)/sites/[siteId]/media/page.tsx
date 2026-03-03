@@ -4,6 +4,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import MediaGrid from '@/components/media/MediaGrid'
 import { canAccessSite, getSiteRole } from '@/lib/permissions'
+import { requireSiteModule } from '@/lib/modules/guard'
 import s from '../../../shared.module.css'
 
 interface Props {
@@ -20,6 +21,9 @@ export default async function MediaPage({ params, searchParams }: Props) {
 
     const hasAccess = await canAccessSite(siteId)
     if (!hasAccess || !siteRole) notFound()
+
+    // Module guard — 404 nếu module 'media' chưa bật cho site này
+    await requireSiteModule(siteId, 'media').catch(() => notFound())
 
     const supabase = await createClient()
 

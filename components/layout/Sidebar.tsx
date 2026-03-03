@@ -7,6 +7,7 @@ import { logoutAction } from '@/app/actions/auth'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import type { User } from '@supabase/supabase-js'
 import type { Site, PlatformRole } from '@/types/database'
+import type { SiteModule } from '@/lib/modules/module-registry'
 
 // ─── Site accent colors (palette per site index) ────────────────────────────
 const SITE_COLORS = [
@@ -95,7 +96,41 @@ const Icons = {
       <circle cx="12" cy="7" r="4" />
     </svg>
   ),
+  // ── Learning module icons ─────────────────────────────────────
+  bookOpen: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+    </svg>
+  ),
+  layers: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polygon points="12 2 2 7 12 12 22 7 12 2" />
+      <polyline points="2 17 12 22 22 17" />
+      <polyline points="2 12 12 17 22 12" />
+    </svg>
+  ),
+  graduationCap: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+      <path d="M6 12v5c3 3 9 3 12 0v-5" />
+    </svg>
+  ),
+  trendingUp: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+      <polyline points="17 6 23 6 23 12" />
+    </svg>
+  ),
+  upload: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  ),
 }
+
 
 interface SidebarProps {
   user: User
@@ -163,6 +198,18 @@ export default function Sidebar({
     }
   }, [isMobileOpen])
 
+  const [siteModules, setSiteModules] = useState<SiteModule[]>([])
+  useEffect(() => {
+    if (!activeSiteId) return
+    setSiteModules([]) // reset khi đổi site
+    fetch(`/api/sites/${activeSiteId}/modules`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setSiteModules(data as SiteModule[])
+      })
+      .catch(() => setSiteModules([]))
+  }, [activeSiteId])
+
   return (
     <>
       {/* Mobile menu button */}
@@ -222,147 +269,109 @@ export default function Sidebar({
           </Link>
         </div>
 
-      {/* ── GLOBAL MODE: no active site ───────────────────────── */}
-      {!activeSite && (
-        <nav className="sidebar-nav">
-          <p className="sidebar-nav-label">Navigation</p>
-          <Link href="/" className={`sidebar-nav-item ${isActive('/', true) ? 'active' : ''}`}>
-            <span className="sidebar-nav-icon">{Icons.grid}</span>
-            Dashboard
-          </Link>
-          {userRole === 'super_admin' && (
-            <Link href="/users" className={`sidebar-nav-item ${isActive('/users') ? 'active' : ''}`}>
-              <span className="sidebar-nav-icon">{Icons.users}</span>
-              Users
-            </Link>
-          )}
-        </nav>
-      )}
-
-      {/* ── SITE CONTEXT MODE ─────────────────────────────────── */}
-      {activeSite && (
-        <>
-          {/* Site Switcher */}
-          <div className="site-switcher-wrap" onClick={(e) => e.stopPropagation()}>
-            <button
-              className="site-switcher"
-              onClick={() => setShowSiteSwitcher((v) => !v)}
-              title="Chuyển site"
-            >
-              <div
-                className="site-switcher-avatar"
-                style={{ background: `hsl(${activeColor?.hue} 65%)` }}
-              >
-                {activeSite.name.substring(0, 2).toUpperCase()}
-              </div>
-              <div className="site-switcher-info">
-                <p className="site-switcher-name">{activeSite.name}</p>
-                {activeSite.domain && (
-                  <p className="site-switcher-domain">{activeSite.domain}</p>
-                )}
-              </div>
-              <span className={`site-switcher-chevron ${showSiteSwitcher ? 'open' : ''}`}>
-                {Icons.chevronDown}
-              </span>
-            </button>
-
-            {/* Dropdown */}
-            {showSiteSwitcher && (
-              <div className="site-switcher-dropdown glass">
-                <p className="site-switcher-dropdown-label">Chuyển sang</p>
-                {sites.filter((s) => s.id !== activeSite.id && s.status === 'active').map((site) => {
-                  const c = getSiteColor(site.id)
-                  const targetHref =
-                    siteRolesById[site.id] === 'admin' ? `/sites/${site.id}` : `/sites/${site.id}/articles`
-                  return (
-                    <Link
-                      key={site.id}
-                      href={targetHref}
-                      className="site-switcher-option"
-                      onClick={() => setShowSiteSwitcher(false)}
-                    >
-                      <div className="site-opt-avatar" style={{ background: `hsl(${c.hue} 65%)` }}>
-                        {site.name.substring(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="site-opt-name">{site.name}</p>
-                        {site.domain && <p className="site-opt-domain">{site.domain}</p>}
-                      </div>
-                    </Link>
-                  )
-                })}
-                {sites.filter((s) => s.id !== activeSite.id && s.status === 'active').length === 0 && (
-                  <p className="site-switcher-empty">Không có site nào khác</p>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Site-specific nav */}
+        {/* ── GLOBAL MODE: no active site ───────────────────────── */}
+        {!activeSite && (
           <nav className="sidebar-nav">
-            <p className="sidebar-nav-label">Quản lý</p>
-            {activeSiteRole === 'admin' && (
-              <Link
-                href={`/sites/${activeSite.id}`}
-                className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}`, true) ? 'active' : ''}`}
-              >
-                <span className="sidebar-nav-icon">{Icons.overview}</span>
-                Tổng quan
+            <p className="sidebar-nav-label">Navigation</p>
+            <Link href="/" className={`sidebar-nav-item ${isActive('/', true) ? 'active' : ''}`}>
+              <span className="sidebar-nav-icon">{Icons.grid}</span>
+              Dashboard
+            </Link>
+            {userRole === 'super_admin' && (
+              <Link href="/users" className={`sidebar-nav-item ${isActive('/users') ? 'active' : ''}`}>
+                <span className="sidebar-nav-icon">{Icons.users}</span>
+                Users
               </Link>
             )}
-            <Link
-              href={`/sites/${activeSite.id}/articles`}
-              className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}/articles`) ? 'active' : ''}`}
-            >
-              <span className="sidebar-nav-icon">{Icons.article}</span>
-              Bài viết
-            </Link>
-            <Link
-              href={`/sites/${activeSite.id}/media`}
-              className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}/media`) ? 'active' : ''}`}
-            >
-              <span className="sidebar-nav-icon">{Icons.image}</span>
-              Media
-            </Link>
-            {activeSiteRole === 'admin' && (
-              <>
-                <Link
-                  href={`/sites/${activeSite.id}/members`}
-                  className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}/members`) ? 'active' : ''}`}
-                >
-                  <span className="sidebar-nav-icon">{Icons.users}</span>
-                  Members
-                </Link>
-                <Link
-                  href={`/sites/${activeSite.id}/clients`}
-                  className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}/clients`) ? 'active' : ''}`}
-                >
-                  <span className="sidebar-nav-icon">{Icons.clients}</span>
-                  Clients
-                </Link>
-                <Link
-                  href={`/sites/${activeSite.id}/settings`}
-                  className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}/settings`) ? 'active' : ''}`}
-                >
-                  <span className="sidebar-nav-icon">{Icons.settings}</span>
-                  Cài đặt
-                </Link>
-              </>
-            )}
           </nav>
+        )}
 
-          {/* Back to all sites */}
-          <div className="sidebar-back-wrap">
-            <Link href="/" className="sidebar-back-link">
-              {Icons.chevronLeft}
-              Tất cả websites
-            </Link>
-          </div>
-        </>
-      )}
+        {/* ── SITE CONTEXT MODE ─────────────────────────────────── */}
+        {activeSite && (
+          <>
+            {/* Site Switcher */}
+            <div className="site-switcher-wrap" onClick={(e) => e.stopPropagation()}>
+              <button
+                className="site-switcher"
+                onClick={() => setShowSiteSwitcher((v) => !v)}
+                title="Chuyển site"
+              >
+                <div
+                  className="site-switcher-avatar"
+                  style={{ background: `hsl(${activeColor?.hue} 65%)` }}
+                >
+                  {activeSite.name.substring(0, 2).toUpperCase()}
+                </div>
+                <div className="site-switcher-info">
+                  <p className="site-switcher-name">{activeSite.name}</p>
+                  {activeSite.domain && (
+                    <p className="site-switcher-domain">{activeSite.domain}</p>
+                  )}
+                </div>
+                <span className={`site-switcher-chevron ${showSiteSwitcher ? 'open' : ''}`}>
+                  {Icons.chevronDown}
+                </span>
+              </button>
 
-      {/* ── Spacer ────────────────────────────────────────────── */}
-      <div className="sidebar-spacer" />
+              {/* Dropdown */}
+              {showSiteSwitcher && (
+                <div className="site-switcher-dropdown glass">
+                  <p className="site-switcher-dropdown-label">Chuyển sang</p>
+                  {sites.filter((s) => s.id !== activeSite.id && s.status === 'active').map((site) => {
+                    const c = getSiteColor(site.id)
+                    const targetHref =
+                      siteRolesById[site.id] === 'admin' ? `/sites/${site.id}` : `/sites/${site.id}/articles`
+                    return (
+                      <Link
+                        key={site.id}
+                        href={targetHref}
+                        className="site-switcher-option"
+                        onClick={() => setShowSiteSwitcher(false)}
+                      >
+                        <div className="site-opt-avatar" style={{ background: `hsl(${c.hue} 65%)` }}>
+                          {site.name.substring(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="site-opt-name">{site.name}</p>
+                          {site.domain && <p className="site-opt-domain">{site.domain}</p>}
+                        </div>
+                      </Link>
+                    )
+                  })}
+                  {sites.filter((s) => s.id !== activeSite.id && s.status === 'active').length === 0 && (
+                    <p className="site-switcher-empty">Không có site nào khác</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Site-specific nav (dynamic) */}
+            <nav className="sidebar-nav">
+              <p className="sidebar-nav-label">Quản lý</p>
+              {siteModules.map((sm) => (
+                <Link
+                  key={sm.module_id}
+                  href={`/sites/${activeSite.id}/${sm.modules.route_segment}`}
+                  className={`sidebar-nav-item site-nav ${isActive(`/sites/${activeSite.id}/${sm.modules.route_segment}`) ? 'active' : ''}`}
+                >
+                  <span className="sidebar-nav-icon">{Icons[sm.modules.icon as keyof typeof Icons] || Icons.grid}</span>
+                  {sm.modules.name}
+                </Link>
+              ))}
+            </nav>
+
+            {/* Back to all sites */}
+            <div className="sidebar-back-wrap">
+              <Link href="/" className="sidebar-back-link">
+                {Icons.chevronLeft}
+                Tất cả websites
+              </Link>
+            </div>
+          </>
+        )}
+
+        {/* ── Spacer ────────────────────────────────────────────── */}
+        <div className="sidebar-spacer" />
 
         {/* ── User footer ───────────────────────────────────────── */}
         <div className="sidebar-footer">
