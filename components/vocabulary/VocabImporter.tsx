@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useRef, useCallback } from 'react'
+import { toRomaji } from 'wanakana'
 import { useRouter } from 'next/navigation'
 import { bulkImportVocab } from '@/app/actions/vocabulary'
 import s from '@/app/(dashboard)/shared.module.css'
@@ -14,12 +15,15 @@ type ParsedRow = {
     _valid: boolean; _error?: string
 }
 
-const CSV_COLUMNS = ['word', 'reading', 'romanization', 'meaning_vi', 'meaning_en', 'part_of_speech', 'jlpt_level', 'tags']
+// romanization không cần — tự động generate từ reading bằng wanakana
+const CSV_COLUMNS = ['word', 'reading', 'meaning_vi', 'meaning_en', 'part_of_speech', 'jlpt_level', 'tags']
 const REQUIRED = ['word', 'meaning_vi']
 
-const TEMPLATE_CSV = `word,reading,romanization,meaning_vi,meaning_en,part_of_speech,jlpt_level,tags
-こんにちは,こんにちは,konnichiwa,Xin chào,Hello,感動詞,N5,greeting
-ありがとう,ありがとう,arigatou,Cảm ơn,Thank you,感動詞,N5,greeting
+// Template không có cột romanization — tự động tạo từ hiragana (reading)
+const TEMPLATE_CSV = `word,reading,meaning_vi,meaning_en,part_of_speech,jlpt_level,tags
+こんにちは,こんにちは,Xin chào (ban ngày),Hello,感動詞,N5,greeting
+ありがとう,ありがとう,Cảm ơn,Thank you,感動詞,N5,greeting
+私,わたし,Tôi,I/Me,名詞,N5,
 `
 
 function parseCSV(text: string): ParsedRow[] {
@@ -42,10 +46,12 @@ function parseCSV(text: string): ParsedRow[] {
         const row: Record<string, string> = {}
         headers.forEach((h, idx) => { row[h] = values[idx] ?? '' })
 
+        const reading = row['reading'] || undefined
         const parsed: ParsedRow = {
             word: row['word'] ?? '',
-            reading: row['reading'] || undefined,
-            romanization: row['romanization'] || undefined,
+            reading,
+            // auto-generate romaji từ hiragana bằng wanakana
+            romanization: reading ? toRomaji(reading) : undefined,
             meaning_vi: row['meaning_vi'] ?? '',
             meaning_en: row['meaning_en'] || undefined,
             part_of_speech: row['part_of_speech'] || undefined,

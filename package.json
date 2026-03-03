@@ -37,6 +37,7 @@
     "react-hook-form": "^7.71.2",
     "slugify": "^1.6.6",
     "tailwind-merge": "^3.5.0",
+    "wanakana": "^5.3.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {

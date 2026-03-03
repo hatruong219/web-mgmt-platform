@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { toRomaji } from 'wanakana'
 import { createVocabWord, updateVocabWord, deleteVocabWord } from '@/app/actions/vocabulary'
 import s from '@/app/(dashboard)/shared.module.css'
 
@@ -49,6 +50,7 @@ function WordForm({
 }) {
     const [isPending, startTransition] = useTransition()
     const [error, setError] = useState('')
+    const [reading, setReading] = useState(initial?.reading ?? '')
     const formRef = useRef<HTMLFormElement>(null)
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -56,6 +58,9 @@ function WordForm({
         setError('')
         const fd = new FormData(e.currentTarget)
         fd.set('site_id', siteId)
+        // auto-inject romaji vào romanization field
+        const readingVal = fd.get('reading') as string
+        if (readingVal) fd.set('romanization', toRomaji(readingVal))
 
         startTransition(async () => {
             const res = initial
@@ -83,16 +88,14 @@ function WordForm({
                 {/* Reading */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>Cách đọc (ふりがな)</label>
-                    <input name="reading" defaultValue={initial?.reading ?? ''}
+                    <input name="reading" value={reading} onChange={e => setReading(e.target.value)}
                         style={{ padding: '0.5rem 0.75rem', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))', borderRadius: '0.5rem', color: 'hsl(var(--foreground))', fontSize: '0.9375rem', fontFamily: 'inherit', outline: 'none' }}
                     />
-                </div>
-                {/* Romanization */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>Romaji</label>
-                    <input name="romanization" defaultValue={initial?.romanization ?? ''}
-                        style={{ padding: '0.5rem 0.75rem', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))', borderRadius: '0.5rem', color: 'hsl(var(--foreground))', fontSize: '0.9375rem', fontFamily: 'inherit', outline: 'none' }}
-                    />
+                    {reading && (
+                        <span style={{ fontSize: '0.7rem', color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>
+                            ✨ {toRomaji(reading)}
+                        </span>
+                    )}
                 </div>
 
                 {/* Meaning VI */}
