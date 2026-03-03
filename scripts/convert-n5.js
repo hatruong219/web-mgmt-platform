@@ -91,8 +91,8 @@ function main() {
             escapeCSV(nghia),
             escapeCSV(hanViet),   // dùng Hán Việt làm meaning_en
             escapeCSV(mapPos(posRaw)),
-            'jlpt-n5',                  // jlpt _level fix cứng là N5
-            'jlpt-n5',                  // tags
+            'N5',       // jlpt_level — VARCHAR(5), chỉ dùng N1–N5
+            'jlpt-n5',  // tags
         ]
         rows.push(row.join(','))
     }
