@@ -123,3 +123,21 @@ export interface SiteClient {
   created_at: string
   updated_at: string
 }
+
+// ─── Feedback Types ───────────────────────────────────────────────────────
+
+export type FeedbackStatus = 'pending' | 'reviewed' | 'archived'
+
+export interface Feedback {
+  id: string
+  site_id: string
+  name: string
+  email: string | null
+  message: string
+  rating: number | null
+  image: string | null
+  status: FeedbackStatus
+  metadata: Json
+  created_at: string
+  updated_at: string
+}
