@@ -122,7 +122,7 @@ export default function VocabImporter({ siteId, decks }: { siteId: string; decks
     }
 
     return (
-        <div style={{ maxWidth: 860 }}>
+        <div style={{ maxWidth: 860, margin: '0 auto' }}>
             {/* Header */}
             <div className={s.pageHeader}>
                 <div>
