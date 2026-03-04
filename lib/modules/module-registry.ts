@@ -9,6 +9,7 @@ export type ModuleId =
   | 'lessons'
   | 'user-progress'
   | 'vocabulary-import'
+  | 'feedbacks'
 
 export interface ModuleInfo {
   id: ModuleId
