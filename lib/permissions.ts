@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 
 export type PlatformRole = 'super_admin' | 'admin' | 'editor'
@@ -22,9 +23,9 @@ export interface SiteMembership {
 /**
  * Get current user's profile with platform role
  */
-export async function getCurrentUser(): Promise<UserProfile | null> {
+export const getCurrentUser = cache(async (): Promise<UserProfile | null> => {
   const supabase = await createClient()
-  
+
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
@@ -44,7 +45,7 @@ export async function getCurrentUser(): Promise<UserProfile | null> {
     role: profile.role as PlatformRole,
     is_active: profile.is_active,
   }
-}
+})
 
 /**
  * Check if current user is Super Admin
@@ -57,13 +58,12 @@ export async function isSuperAdmin(): Promise<boolean> {
 /**
  * Get user's role for a specific site
  */
-export async function getSiteRole(siteId: string): Promise<SiteRole | null> {
+export const getSiteRole = cache(async (siteId: string): Promise<SiteRole | null> => {
   const supabase = await createClient()
-  
+
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  // Super admin has full access to all sites
   const { data: profile } = await supabase
     .from('profiles')
     .select('role')
@@ -71,10 +71,9 @@ export async function getSiteRole(siteId: string): Promise<SiteRole | null> {
     .single()
 
   if (profile?.role === 'super_admin') {
-    return 'admin' // Super admin acts as admin on all sites
+    return 'admin'
   }
 
-  // Check site membership
   const { data: membership } = await supabase
     .from('site_members')
     .select('role')
@@ -83,7 +82,7 @@ export async function getSiteRole(siteId: string): Promise<SiteRole | null> {
     .single()
 
   return membership?.role as SiteRole | null
-}
+})
 
 /**
  * Check if user can access a specific site

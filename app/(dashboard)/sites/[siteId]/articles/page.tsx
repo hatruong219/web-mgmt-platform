@@ -6,7 +6,7 @@ import type { Article } from '@/types/database'
 import { formatDate } from '@/lib/utils'
 import ArticleFilters from '@/components/articles/ArticleFilters'
 import DeleteArticleButton from '@/components/articles/DeleteArticleButton'
-import { canAccessSite, getSiteRole } from '@/lib/permissions'
+import { getSiteRole } from '@/lib/permissions'
 import { requireSiteModule } from '@/lib/modules/guard'
 import s from '../../../shared.module.css'
 
@@ -21,9 +21,7 @@ export default async function ArticlesPage({ params, searchParams }: Props) {
     const { siteId } = await params
     const { status, q, forbidden } = await searchParams
     const siteRole = await getSiteRole(siteId)
-
-    const hasAccess = await canAccessSite(siteId)
-    if (!hasAccess || !siteRole) notFound()
+    if (!siteRole) notFound()
 
     // Module guard — 404 nếu module 'articles' chưa bật cho site này
     await requireSiteModule(siteId, 'articles').catch(() => notFound())
