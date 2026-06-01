@@ -124,6 +124,53 @@ export interface SiteClient {
   updated_at: string
 }
 
+// ─── MNN (Minna no Nihongo) Types ────────────────────────────────────────
+
+export interface MnnLesson {
+  id: string
+  site_id: string
+  lesson_number: number
+  title_vi: string
+  situation_vi: string | null
+  order_index: number
+  created_at: string
+}
+
+export interface MnnVocabulary {
+  id: string
+  site_id: string
+  lesson_id: string
+  word: string
+  reading: string | null
+  romanization: string | null
+  meaning_vi: string
+  part_of_speech: string | null
+  order_index: number
+}
+
+export interface MnnGrammar {
+  id: string
+  site_id: string
+  lesson_id: string
+  pattern: string
+  explanation_vi: string
+  example_ja: string | null
+  example_vi: string | null
+  order_index: number
+}
+
+export interface MnnExercise {
+  id: string
+  site_id: string
+  lesson_id: string
+  type: 'fill_blank' | 'multiple_choice'
+  question: string
+  options: Json | null
+  answer: string
+  explanation_vi: string | null
+  order_index: number
+}
+
 // ─── Feedback Types ───────────────────────────────────────────────────────
 
 export type FeedbackStatus = 'pending' | 'reviewed' | 'archived'

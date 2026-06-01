@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import { canAccessSite, isSiteAdmin } from '@/lib/permissions'
+import { getSiteRole } from '@/lib/permissions'
 import { requireSiteModule } from '@/lib/modules/guard'
 import type { Metadata } from 'next'
 import type { Feedback } from '@/types/database'
@@ -26,10 +26,13 @@ export default async function FeedbacksPage({ params, searchParams }: PageProps)
   const { siteId } = await params
   const { page = '1', search, status } = await searchParams
 
-  const hasAccess = await canAccessSite(siteId)
-  if (!hasAccess) notFound()
+  const [siteRole] = await Promise.all([
+    getSiteRole(siteId),
+    requireSiteModule(siteId, 'feedbacks').catch(() => notFound()),
+  ])
+  if (!siteRole) notFound()
 
-  await requireSiteModule(siteId, 'feedbacks').catch(() => notFound())
+  const canDelete = siteRole === 'admin'
 
   const supabase = await createClient()
 
@@ -40,8 +43,6 @@ export default async function FeedbacksPage({ params, searchParams }: PageProps)
     .single()
 
   if (!site) notFound()
-
-  const canDelete = await isSiteAdmin(siteId)
 
   // Build query
   let query = supabase

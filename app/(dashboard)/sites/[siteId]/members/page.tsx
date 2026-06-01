@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
-import { isSuperAdmin, canAccessSite, isSiteAdmin, getSiteRole } from '@/lib/permissions'
+import { isSuperAdmin, getSiteRole } from '@/lib/permissions'
 import { requireSiteModule } from '@/lib/modules/guard'
 import type { Metadata } from 'next'
 import type { SiteMemberWithProfile, InvitationWithSite } from '@/types/database'
@@ -23,40 +23,29 @@ interface PageProps {
 
 export default async function SiteMembersPage({ params }: PageProps) {
   const { siteId } = await params
-  const siteRole = await getSiteRole(siteId)
+  const [siteRole] = await Promise.all([
+    getSiteRole(siteId),
+    requireSiteModule(siteId, 'members').catch(() => notFound()),
+  ])
   if (!siteRole) notFound()
 
-  // Editor/viewer cannot manage members
   if (siteRole !== 'admin') {
     redirect(`/sites/${siteId}/articles?forbidden=members`)
   }
 
-  // Module guard — 404 nếu module 'members' chưa bật cho site này
-  await requireSiteModule(siteId, 'members').catch(() => notFound())
+  const siteAdmin = siteRole === 'admin'
+  const superAdmin = await isSuperAdmin()
+  const canManage = superAdmin || siteAdmin
 
   const supabase = await createClient()
 
-  // Check access
-  const hasAccess = await canAccessSite(siteId)
-  if (!hasAccess) {
-    notFound()
-  }
-
-  // Get site info
   const { data: site } = await supabase
     .from('sites')
     .select('id, name, slug')
     .eq('id', siteId)
     .single()
 
-  if (!site) {
-    notFound()
-  }
-
-  // Check if user can manage members
-  const superAdmin = await isSuperAdmin()
-  const siteAdmin = await isSiteAdmin(siteId)
-  const canManage = superAdmin || siteAdmin
+  if (!site) notFound()
 
   // Fetch members and pending invitations
   const [membersResult, invitationsResult] = await Promise.all([

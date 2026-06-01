@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
-import { canAccessSite, isSiteAdmin, getSiteRole } from '@/lib/permissions'
+import { getSiteRole } from '@/lib/permissions'
 import { requireSiteModule } from '@/lib/modules/guard'
 import type { Metadata } from 'next'
 import type { SiteClient } from '@/types/database'
@@ -28,38 +28,27 @@ export default async function SiteClientsPage({ params, searchParams }: PageProp
   const { siteId } = await params
   const { page = '1', search, provider, status } = await searchParams
 
-  const siteRole = await getSiteRole(siteId)
+  const [siteRole] = await Promise.all([
+    getSiteRole(siteId),
+    requireSiteModule(siteId, 'clients').catch(() => notFound()),
+  ])
   if (!siteRole) notFound()
 
-  // Editor/viewer cannot access Clients
   if (siteRole !== 'admin') {
     redirect(`/sites/${siteId}/articles?forbidden=clients`)
   }
 
-  // Check access
-  const hasAccess = await canAccessSite(siteId)
-  if (!hasAccess) {
-    notFound()
-  }
-
-  // Module guard — 404 nếu module 'clients' chưa bật cho site này
-  await requireSiteModule(siteId, 'clients').catch(() => notFound())
+  const canExport = siteRole === 'admin'
 
   const supabase = await createClient()
 
-  // Get site info
   const { data: site } = await supabase
     .from('sites')
     .select('id, name, slug')
     .eq('id', siteId)
     .single()
 
-  if (!site) {
-    notFound()
-  }
-
-  // Check if user can export
-  const canExport = await isSiteAdmin(siteId)
+  if (!site) notFound()
 
   // Build query
   let query = supabase
