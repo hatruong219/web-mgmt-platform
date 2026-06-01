@@ -35,7 +35,7 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const isAuthPage = pathname.startsWith('/login')
   const isInvitePage = pathname.startsWith('/invite')
-  const isPublicApiRoute = pathname.startsWith('/api/v1')
+  const isPublicApiRoute = pathname.startsWith('/api/v1') || pathname.startsWith('/api/kana-quiz')
 
   // Require auth for all pages EXCEPT:
   // - /login (auth page)
