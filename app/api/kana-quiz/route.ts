@@ -8,25 +8,17 @@ const supabase = createClient(
 )
 
 export async function GET(req: Request) {
+  const siteId = process.env.LANGUAGE_LEARNING_SITE_ID
+  if (!siteId) {
+    return NextResponse.json({ error: 'Site not configured' }, { status: 500 })
+  }
+
   const { searchParams } = new URL(req.url)
   const lessonsParam = searchParams.get('lessons')
 
   const lessonNumbers = lessonsParam
     ? lessonsParam.split(',').map(Number).filter((n) => Number.isInteger(n) && n > 0)
     : null
-
-  // Resolve site_id for the language-learning site
-  const { data: site } = await supabase
-    .from('sites')
-    .select('id')
-    .eq('slug', 'language-learning')
-    .single()
-
-  if (!site) {
-    return NextResponse.json({ error: 'Site not found' }, { status: 404 })
-  }
-
-  const siteId = site.id
 
   // Always return all lessons for menu building
   const { data: lessons, error: lessonsError } = await supabase
