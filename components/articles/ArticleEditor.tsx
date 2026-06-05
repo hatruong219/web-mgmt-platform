@@ -28,6 +28,48 @@ export default function ArticleEditor({ siteId, siteName, article }: ArticleEdit
     const [tags, setTags] = useState(article?.tags?.join(', ') ?? '')
     const [status, setStatus] = useState<'draft' | 'published' | 'archived'>(article?.status ?? 'draft')
 
+    const buildPreviewSrcdoc = () => {
+        const div = document.createElement('div')
+        div.innerHTML = content
+        const decoded = div.textContent ?? ''
+        const trimmed = decoded.trim()
+        const isFullDocument = trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')
+        if (isFullDocument) return trimmed
+
+        const tagList = tags.split(',').map(t => t.trim()).filter(Boolean)
+        const coverHtml = coverImage
+            ? `<img src="${coverImage}" alt="Cover" style="width:100%;max-height:360px;object-fit:cover;border-radius:12px;margin-bottom:2rem;display:block;">`
+            : ''
+        const excerptHtml = excerpt
+            ? `<p style="font-size:1.0625rem;color:#94a3b8;margin-bottom:1rem;line-height:1.6;border-left:3px solid #6366f1;padding-left:1rem;">${excerpt}</p>`
+            : ''
+        const tagsHtml = tagList.length
+            ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:2rem;">${tagList.map(t => `<span style="padding:3px 10px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:9999px;font-size:.75rem;color:#818cf8;font-weight:500;">${t}</span>`).join('')}</div>`
+            : ''
+
+        return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  body{margin:0;padding:2rem 2.5rem 4rem;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    font-size:1rem;line-height:1.8;color:#e2e8f0;background:#0f1117;max-width:760px;}
+  h1,h2,h3{font-weight:700;letter-spacing:-0.02em;margin:1.5em 0 .5em;}
+  h1{font-size:2rem;}h2{font-size:1.5rem;}h3{font-size:1.25rem;}
+  p{margin:.875em 0;}a{color:#818cf8;}
+  code{font-family:monospace;font-size:.875em;background:#1e2130;padding:.15em .4em;border-radius:.3em;}
+  pre{background:#1e2130;border:1px solid #2d3148;border-radius:10px;padding:1rem;overflow-x:auto;margin:1.25em 0;}
+  pre code{background:none;padding:0;}
+  ul,ol{padding-left:1.5rem;margin:.875em 0;}li{margin:.25em 0;}
+  blockquote{border-left:3px solid #6366f1;margin:1.25em 0;padding:.5em 1em;color:#94a3b8;}
+  img{max-width:100%;border-radius:8px;margin:1em 0;}
+  hr{border:none;border-top:1px solid #2d3148;margin:2em 0;}
+</style></head><body>
+${coverHtml}
+<h1 style="font-size:2.25rem;font-weight:700;letter-spacing:-.02em;margin:0 0 .75rem;line-height:1.2;">${title || 'Untitled'}</h1>
+${excerptHtml}${tagsHtml}
+${content}
+</body></html>`
+    }
+
     const [saved, setSaved] = useState(true)
     const [lastSaved, setLastSaved] = useState<string | null>(null)
     const [showCoverPicker, setShowCoverPicker] = useState(false)
@@ -162,21 +204,11 @@ export default function ArticleEditor({ siteId, siteName, article }: ArticleEdit
             <div className="editor-body">
                 {isPreview ? (
                     <div className="preview-main">
-                        {coverImage && (
-                            <img src={coverImage} alt="Cover" className="preview-cover" />
-                        )}
-                        <h1 className="preview-title">{title || 'Untitled'}</h1>
-                        {excerpt && <p className="preview-excerpt">{excerpt}</p>}
-                        {tags && (
-                            <div className="preview-tags">
-                                {tags.split(',').map(t => t.trim()).filter(Boolean).map(tag => (
-                                    <span key={tag} className="preview-tag">{tag}</span>
-                                ))}
-                            </div>
-                        )}
-                        <div
-                            className="preview-content prose"
-                            dangerouslySetInnerHTML={{ __html: content }}
+                        <iframe
+                            srcDoc={buildPreviewSrcdoc()}
+                            className="preview-iframe"
+                            sandbox="allow-same-origin"
+                            title="Article Preview"
                         />
                     </div>
                 ) : (
@@ -373,55 +405,12 @@ export default function ArticleEditor({ siteId, siteName, article }: ArticleEdit
         }
         .btn-preview:hover { border-color:hsl(var(--primary)/.5); color:hsl(var(--primary)); }
         .btn-preview.active { background:hsl(var(--primary)/.1); border-color:hsl(var(--primary)/.4); color:hsl(var(--primary)); }
-        .preview-main {
-          flex:1; min-width:0; max-width:720px; margin:0 auto;
-          padding:0 1rem 4rem;
+        .preview-main { flex:1; min-width:0; display:flex; flex-direction:column; }
+        .preview-iframe {
+          flex:1; width:100%; min-height:calc(100vh - 12rem);
+          border:1px solid hsl(var(--border)); border-radius:0.875rem;
+          background:#0f1117;
         }
-        .preview-cover {
-          width:100%; max-height:360px; object-fit:cover; border-radius:0.875rem;
-          margin-bottom:2rem; display:block;
-        }
-        .preview-title {
-          font-size:2.25rem; font-weight:700; letter-spacing:-0.02em;
-          color:hsl(var(--foreground)); margin-bottom:0.75rem; line-height:1.2;
-        }
-        .preview-excerpt {
-          font-size:1.0625rem; color:hsl(var(--muted-foreground)); margin-bottom:1rem;
-          line-height:1.6; border-left:3px solid hsl(var(--primary)/.4); padding-left:1rem;
-        }
-        .preview-tags { display:flex; flex-wrap:wrap; gap:0.375rem; margin-bottom:2rem; }
-        .preview-tag {
-          padding:0.25rem 0.625rem; background:hsl(var(--primary)/.1); border:1px solid hsl(var(--primary)/.2);
-          border-radius:9999px; font-size:0.75rem; color:hsl(var(--primary)); font-weight:500;
-        }
-        .preview-content {
-          color:hsl(var(--foreground)); font-size:1rem; line-height:1.8;
-        }
-        .preview-content :global(h1),
-        .preview-content :global(h2),
-        .preview-content :global(h3) { font-weight:700; margin:1.5em 0 0.5em; letter-spacing:-0.01em; }
-        .preview-content :global(h1) { font-size:1.875rem; }
-        .preview-content :global(h2) { font-size:1.5rem; }
-        .preview-content :global(h3) { font-size:1.25rem; }
-        .preview-content :global(p) { margin:0.875em 0; }
-        .preview-content :global(a) { color:hsl(var(--primary)); text-decoration:underline; }
-        .preview-content :global(code) {
-          font-family:monospace; font-size:0.875em;
-          background:hsl(var(--secondary)); padding:0.15em 0.4em; border-radius:0.3em;
-        }
-        .preview-content :global(pre) {
-          background:hsl(var(--secondary)); border:1px solid hsl(var(--border));
-          border-radius:0.625rem; padding:1rem 1.25rem; overflow-x:auto; margin:1.25em 0;
-        }
-        .preview-content :global(pre code) { background:none; padding:0; }
-        .preview-content :global(ul), .preview-content :global(ol) { padding-left:1.5rem; margin:0.875em 0; }
-        .preview-content :global(li) { margin:0.25em 0; }
-        .preview-content :global(blockquote) {
-          border-left:3px solid hsl(var(--primary)/.4); margin:1.25em 0;
-          padding:0.5em 1em; color:hsl(var(--muted-foreground));
-        }
-        .preview-content :global(img) { max-width:100%; border-radius:0.5rem; margin:1em 0; }
-        .preview-content :global(hr) { border:none; border-top:1px solid hsl(var(--border)); margin:2em 0; }
         @media (max-width: 900px) {
           .editor-body { flex-direction:column; }
           .editor-sidebar { width:100%; }
