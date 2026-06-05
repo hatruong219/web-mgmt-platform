@@ -32,6 +32,7 @@ export default function ArticleEditor({ siteId, siteName, article }: ArticleEdit
     const [lastSaved, setLastSaved] = useState<string | null>(null)
     const [showCoverPicker, setShowCoverPicker] = useState(false)
     const [coverUploading, setCoverUploading] = useState(false)
+    const [isPreview, setIsPreview] = useState(false)
 
     // Auto-save debounce
     useEffect(() => {
@@ -44,7 +45,7 @@ export default function ArticleEditor({ siteId, siteName, article }: ArticleEdit
 
     const markUnsaved = useCallback(() => setSaved(false), [])
 
-    const handleSave = async (showNotify = true) => {
+    const handleSave = async (_showNotify = true) => {
         const tagArr = tags.split(',').map(t => t.trim()).filter(Boolean)
 
         startTransition(async () => {
@@ -120,6 +121,23 @@ export default function ArticleEditor({ siteId, siteName, article }: ArticleEdit
                     </div>
                 </div>
                 <div className="editor-topbar-right">
+                    <button
+                        onClick={() => setIsPreview(v => !v)}
+                        className={`btn-preview${isPreview ? ' active' : ''}`}
+                        title={isPreview ? 'Quay lại chỉnh sửa' : 'Xem trước'}
+                    >
+                        {isPreview ? (
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                        ) : (
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+                            </svg>
+                        )}
+                        {isPreview ? 'Chỉnh sửa' : 'Preview'}
+                    </button>
                     <select
                         value={status}
                         onChange={(e) => { setStatus(e.target.value as typeof status); markUnsaved() }}
@@ -142,6 +160,26 @@ export default function ArticleEditor({ siteId, siteName, article }: ArticleEdit
 
             {/* Main Editor Area */}
             <div className="editor-body">
+                {isPreview ? (
+                    <div className="preview-main">
+                        {coverImage && (
+                            <img src={coverImage} alt="Cover" className="preview-cover" />
+                        )}
+                        <h1 className="preview-title">{title || 'Untitled'}</h1>
+                        {excerpt && <p className="preview-excerpt">{excerpt}</p>}
+                        {tags && (
+                            <div className="preview-tags">
+                                {tags.split(',').map(t => t.trim()).filter(Boolean).map(tag => (
+                                    <span key={tag} className="preview-tag">{tag}</span>
+                                ))}
+                            </div>
+                        )}
+                        <div
+                            className="preview-content prose"
+                            dangerouslySetInnerHTML={{ __html: content }}
+                        />
+                    </div>
+                ) : (
                 <div className="editor-main">
                     {/* Title */}
                     <input
@@ -161,6 +199,7 @@ export default function ArticleEditor({ siteId, siteName, article }: ArticleEdit
                         siteId={siteId}
                     />
                 </div>
+                )}
 
                 {/* Sidebar */}
                 <aside className="editor-sidebar">
@@ -326,6 +365,63 @@ export default function ArticleEditor({ siteId, siteName, article }: ArticleEdit
           cursor:pointer; transition:all .15s; font-family:inherit;
         }
         .cover-pick-media:hover { border-color:hsl(var(--primary)/.5); color:hsl(var(--primary)); background:hsl(var(--primary)/.05); }
+        .btn-preview {
+          display:flex; align-items:center; gap:0.375rem;
+          padding:0.5rem 0.875rem; background:hsl(var(--secondary)); border:1px solid hsl(var(--border));
+          border-radius:0.5rem; color:hsl(var(--muted-foreground)); font-size:0.8125rem; font-weight:500;
+          font-family:inherit; cursor:pointer; transition:all .15s;
+        }
+        .btn-preview:hover { border-color:hsl(var(--primary)/.5); color:hsl(var(--primary)); }
+        .btn-preview.active { background:hsl(var(--primary)/.1); border-color:hsl(var(--primary)/.4); color:hsl(var(--primary)); }
+        .preview-main {
+          flex:1; min-width:0; max-width:720px; margin:0 auto;
+          padding:0 1rem 4rem;
+        }
+        .preview-cover {
+          width:100%; max-height:360px; object-fit:cover; border-radius:0.875rem;
+          margin-bottom:2rem; display:block;
+        }
+        .preview-title {
+          font-size:2.25rem; font-weight:700; letter-spacing:-0.02em;
+          color:hsl(var(--foreground)); margin-bottom:0.75rem; line-height:1.2;
+        }
+        .preview-excerpt {
+          font-size:1.0625rem; color:hsl(var(--muted-foreground)); margin-bottom:1rem;
+          line-height:1.6; border-left:3px solid hsl(var(--primary)/.4); padding-left:1rem;
+        }
+        .preview-tags { display:flex; flex-wrap:wrap; gap:0.375rem; margin-bottom:2rem; }
+        .preview-tag {
+          padding:0.25rem 0.625rem; background:hsl(var(--primary)/.1); border:1px solid hsl(var(--primary)/.2);
+          border-radius:9999px; font-size:0.75rem; color:hsl(var(--primary)); font-weight:500;
+        }
+        .preview-content {
+          color:hsl(var(--foreground)); font-size:1rem; line-height:1.8;
+        }
+        .preview-content :global(h1),
+        .preview-content :global(h2),
+        .preview-content :global(h3) { font-weight:700; margin:1.5em 0 0.5em; letter-spacing:-0.01em; }
+        .preview-content :global(h1) { font-size:1.875rem; }
+        .preview-content :global(h2) { font-size:1.5rem; }
+        .preview-content :global(h3) { font-size:1.25rem; }
+        .preview-content :global(p) { margin:0.875em 0; }
+        .preview-content :global(a) { color:hsl(var(--primary)); text-decoration:underline; }
+        .preview-content :global(code) {
+          font-family:monospace; font-size:0.875em;
+          background:hsl(var(--secondary)); padding:0.15em 0.4em; border-radius:0.3em;
+        }
+        .preview-content :global(pre) {
+          background:hsl(var(--secondary)); border:1px solid hsl(var(--border));
+          border-radius:0.625rem; padding:1rem 1.25rem; overflow-x:auto; margin:1.25em 0;
+        }
+        .preview-content :global(pre code) { background:none; padding:0; }
+        .preview-content :global(ul), .preview-content :global(ol) { padding-left:1.5rem; margin:0.875em 0; }
+        .preview-content :global(li) { margin:0.25em 0; }
+        .preview-content :global(blockquote) {
+          border-left:3px solid hsl(var(--primary)/.4); margin:1.25em 0;
+          padding:0.5em 1em; color:hsl(var(--muted-foreground));
+        }
+        .preview-content :global(img) { max-width:100%; border-radius:0.5rem; margin:1em 0; }
+        .preview-content :global(hr) { border:none; border-top:1px solid hsl(var(--border)); margin:2em 0; }
         @media (max-width: 900px) {
           .editor-body { flex-direction:column; }
           .editor-sidebar { width:100%; }
