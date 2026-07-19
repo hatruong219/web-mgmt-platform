@@ -42,7 +42,7 @@ export async function GET(req: Request) {
   // Build vocabulary query — only rows with reading
   let vocabQuery = supabase
     .from('mnn_vocabulary')
-    .select('id, reading, meaning_vi')
+    .select('id, word, reading, meaning_vi')
     .eq('site_id', siteId)
     .not('reading', 'is', null)
 
@@ -61,6 +61,8 @@ export async function GET(req: Request) {
     vocabulary: (vocabulary ?? []).map((v) => ({
       id: v.id,
       kana: v.reading,
+      // word giữ chú thích sách ([しゃしんを～]...) để popup chấm cả biến thể có/không chú thích
+      word: v.word,
       meaning: v.meaning_vi,
     })),
   })
