@@ -35,12 +35,24 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const isAuthPage = pathname.startsWith('/login')
   const isInvitePage = pathname.startsWith('/invite')
-  const isPublicApiRoute = pathname.startsWith('/api/v1') || pathname.startsWith('/api/kana-quiz')
+  const isPublicApiRoute =
+    pathname.startsWith('/api/v1') ||
+    pathname.startsWith('/api/kana-quiz') ||
+    pathname.startsWith('/api/kotoba')
 
   // Require auth for all pages EXCEPT:
   // - /login (auth page)
   // - /invite/* (invite acceptance flow: tự xử lý login/signup bên trong)
   // - /api/v1/* (public API, sẽ có auth riêng)
+  // - /api/kotoba/* (app Kotoba trên iPhone gọi vào, KHÔNG có phiên đăng nhập)
+  //
+  //   Thiếu dòng kotoba ở đây thì middleware trả 307 về /login, và app nhận
+  //   được trang HTML thay vì JSON — lỗi hiện ra trên máy là "máy chủ trả về
+  //   dữ liệu không đọc được", không ai đoán ra là do middleware.
+  //
+  //   Để công khai được vì hai route đó chỉ đọc dữ liệu tra cứu JLPT (chữ Hán,
+  //   ngữ pháp giáo trình) qua anon key, không chạm dữ liệu người dùng và
+  //   không nhận tham số ghi.
   if (!session && !isAuthPage && !isInvitePage && !isPublicApiRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
