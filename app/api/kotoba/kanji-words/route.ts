@@ -12,8 +12,10 @@ import { fetchAllRows, publicReadClient } from '@/lib/supabase/public-read'
  * Đổi tên trường ở đây thì PHẢI đổi cả `tools/build-kanji-words-asset.py` bên
  * app — có test khoá danh sách trường này (`test/kanji_words_test.dart`).
  *
- * Không có cấp độ N5/N4: PDF gần như không chứa từ N5, xem phần đầu migration
- * 20260729000006. Thứ tự trong PDF mới là thứ tự học.
+ * Cấp độ (`level`) đi thẳng từ database, hiện seed hết là N4 — không có cách
+ * nào chia N5/N4 tự động cho đúng, xem phần đầu migration 20260729000006. App
+ * gom các giá trị có thật để dựng bộ lọc, nên sửa cấp trong database rồi bấm
+ * đồng bộ là app có ngay, không phải sửa mã hai bên.
  */
 
 type WordRow = {
@@ -22,6 +24,7 @@ type WordRow = {
   han_viet: string
   kana: string
   meaning_vi: string
+  level: string
 }
 
 /** Kanji, không lấy kana. Cùng dải với regex bên app. */
@@ -38,7 +41,7 @@ export async function GET() {
   const { rows, error } = await fetchAllRows<WordRow>((from, to) =>
     supabase
       .from('jlpt_kanji_words')
-      .select('order_index, word, han_viet, kana, meaning_vi')
+      .select('order_index, word, han_viet, kana, meaning_vi, level')
       .eq('site_id', siteId)
       .order('order_index')
       .range(from, to)
@@ -79,6 +82,9 @@ export async function GET() {
           hv: r.han_viet,
           kana: r.kana,
           meaning: r.meaning_vi,
+          // Cấp độ đi thẳng từ database, app KHÔNG hard-code danh sách cấp.
+          // Sửa cấp trong database rồi bấm đồng bộ là app có ngay.
+          level: r.level,
           chars,
           // Chữ chưa có trang chi tiết — giao diện đừng vẽ liên kết bấm vào
           // rồi rỗng.
